@@ -24,7 +24,7 @@ export async function GET(request: NextRequest) {
     let currentStart: Date;
     let previousStart: Date;
     let previousEnd: Date;
-    let groupFormat: string;
+    let dateExpr: ReturnType<typeof sql>;
 
     if (period === "daily") {
       // Last 30 days vs prior 30 days
@@ -33,7 +33,7 @@ export async function GET(request: NextRequest) {
       previousEnd = new Date(currentStart);
       previousStart = new Date(previousEnd);
       previousStart.setDate(previousStart.getDate() - 30);
-      groupFormat = "YYYY-MM-DD";
+      dateExpr = sql`to_char(${orders.createdAt}, 'YYYY-MM-DD')`;
     } else if (period === "weekly") {
       // Last 12 weeks vs prior 12 weeks
       currentStart = new Date(today);
@@ -41,7 +41,7 @@ export async function GET(request: NextRequest) {
       previousEnd = new Date(currentStart);
       previousStart = new Date(previousEnd);
       previousStart.setDate(previousStart.getDate() - 84);
-      groupFormat = "IYYY-IW"; // ISO week
+      dateExpr = sql`to_char(${orders.createdAt}, 'IYYY-IW')`;
     } else {
       // Last 12 months vs prior 12 months
       currentStart = new Date(today);
@@ -49,36 +49,38 @@ export async function GET(request: NextRequest) {
       previousEnd = new Date(currentStart);
       previousStart = new Date(previousEnd);
       previousStart.setMonth(previousStart.getMonth() - 12);
-      groupFormat = "YYYY-MM";
+      dateExpr = sql`to_char(${orders.createdAt}, 'YYYY-MM')`;
     }
 
     // 1. Revenue & order count trends for current period
+    // Count ALL orders (not just paid) for order count, sum total for revenue
     const revenueTrend = await db
       .select({
-        date: sql<string>`to_char(${orders.createdAt}, ${groupFormat})`.as("date"),
-        revenue: sql<number>`COALESCE(SUM(CASE WHEN ${orders.paymentStatus} = 'paid' THEN ${orders.total}::numeric ELSE 0 END), 0)`.as("revenue"),
+        date: dateExpr.as("date"),
+        revenue: sql<number>`COALESCE(SUM(${orders.total}::numeric), 0)`.as("revenue"),
         orderCount: sql<number>`COUNT(*)`.as("order_count"),
       })
       .from(orders)
       .where(gte(orders.createdAt, currentStart))
-      .groupBy(sql`to_char(${orders.createdAt}, ${groupFormat})`)
-      .orderBy(sql`to_char(${orders.createdAt}, ${groupFormat})`);
+      .groupBy(dateExpr)
+      .orderBy(dateExpr);
 
     // 2. Summary stats: current period vs previous period
     const [currentStats] = await db
       .select({
-        totalRevenue: sql<number>`COALESCE(SUM(CASE WHEN ${orders.paymentStatus} = 'paid' THEN ${orders.total}::numeric ELSE 0 END), 0)`.as("total_revenue"),
+        totalRevenue: sql<number>`COALESCE(SUM(${orders.total}::numeric), 0)`.as("total_revenue"),
+        paidRevenue: sql<number>`COALESCE(SUM(CASE WHEN ${orders.paymentStatus} = 'paid' THEN ${orders.total}::numeric ELSE 0 END), 0)`.as("paid_revenue"),
         totalOrders: sql<number>`COUNT(*)`.as("total_orders"),
-        avgOrderValue: sql<number>`COALESCE(AVG(CASE WHEN ${orders.paymentStatus} = 'paid' THEN ${orders.total}::numeric END), 0)`.as("avg_order_value"),
+        avgOrderValue: sql<number>`COALESCE(AVG(${orders.total}::numeric), 0)`.as("avg_order_value"),
       })
       .from(orders)
       .where(gte(orders.createdAt, currentStart));
 
     const [previousStats] = await db
       .select({
-        totalRevenue: sql<number>`COALESCE(SUM(CASE WHEN ${orders.paymentStatus} = 'paid' THEN ${orders.total}::numeric ELSE 0 END), 0)`.as("total_revenue"),
+        totalRevenue: sql<number>`COALESCE(SUM(${orders.total}::numeric), 0)`.as("total_revenue"),
         totalOrders: sql<number>`COUNT(*)`.as("total_orders"),
-        avgOrderValue: sql<number>`COALESCE(AVG(CASE WHEN ${orders.paymentStatus} = 'paid' THEN ${orders.total}::numeric END), 0)`.as("avg_order_value"),
+        avgOrderValue: sql<number>`COALESCE(AVG(${orders.total}::numeric), 0)`.as("avg_order_value"),
       })
       .from(orders)
       .where(and(gte(orders.createdAt, previousStart), lte(orders.createdAt, previousEnd)));
@@ -186,19 +188,20 @@ export async function GET(request: NextRequest) {
         ? ((Number(currentStats.totalRevenue) - Number(previousStats.totalRevenue)) /
             Number(previousStats.totalRevenue)) *
           100
-        : 0;
+        : Number(currentStats.totalRevenue) > 0 ? 100 : 0;
 
     const ordersChange =
       Number(previousStats.totalOrders) > 0
         ? ((Number(currentStats.totalOrders) - Number(previousStats.totalOrders)) /
             Number(previousStats.totalOrders)) *
           100
-        : 0;
+        : Number(currentStats.totalOrders) > 0 ? 100 : 0;
 
     return NextResponse.json({
       period,
       summary: {
         totalRevenue: Number(currentStats.totalRevenue),
+        paidRevenue: Number(currentStats.paidRevenue),
         totalOrders: Number(currentStats.totalOrders),
         avgOrderValue: Number(Number(currentStats.avgOrderValue).toFixed(0)),
         revenueChange: Math.round(revenueChange),

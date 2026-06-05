@@ -56,11 +56,14 @@ const COLORS = ["#6B8F71", "#8FB996", "#A3C9A8", "#B5D6B2", "#D4E9D7", "#E8F4E9"
 export default function AdminDashboardPage() {
   const [period, setPeriod] = useState<Period>("daily");
 
-  const { data, isLoading } = useQuery<AnalyticsData>({
+  const { data, isLoading, error } = useQuery<AnalyticsData>({
     queryKey: ["admin", "analytics", period],
     queryFn: async () => {
       const res = await fetch(`/api/admin/analytics?period=${period}`);
-      if (!res.ok) throw new Error("Failed to fetch analytics");
+      if (!res.ok) {
+        const body = await res.text();
+        throw new Error(`Failed to fetch analytics: ${res.status} ${body}`);
+      }
       return res.json();
     },
   });
@@ -236,6 +239,11 @@ export default function AdminDashboardPage() {
         <div className="flex items-center justify-center py-20">
           <div className="h-8 w-8 animate-spin rounded-full border-2 border-accent border-t-transparent" />
         </div>
+      ) : error ? (
+        <div className="rounded-xl border border-red-200 bg-red-50 p-6 text-center">
+          <p className="text-sm font-medium text-red-800">Failed to load analytics</p>
+          <p className="mt-1 text-xs text-red-600">{(error as Error).message}</p>
+        </div>
       ) : data ? (
         <>
           {/* Summary Cards */}
@@ -299,6 +307,11 @@ export default function AdminDashboardPage() {
           {/* Revenue Trend Chart */}
           <div className="rounded-xl border border-border bg-surface p-6">
             <h2 className="font-semibold text-foreground mb-4">Revenue Trend</h2>
+            {data.revenueTrend.length === 0 ? (
+              <div className="h-72 flex items-center justify-center text-muted text-sm">
+                No order data in this period yet
+              </div>
+            ) : (
             <div className="h-72">
               <ResponsiveContainer width="100%" height="100%">
                 <LineChart data={data.revenueTrend}>
@@ -314,7 +327,7 @@ export default function AdminDashboardPage() {
                   />
                   <YAxis
                     tick={{ fontSize: 11, fill: "var(--color-muted)" }}
-                    tickFormatter={(v) => `₹${(v / 1000).toFixed(0)}k`}
+                    tickFormatter={(v) => v >= 1000 ? `₹${(v / 1000).toFixed(0)}k` : `₹${v}`}
                   />
                   <Tooltip
                     contentStyle={{
@@ -330,12 +343,13 @@ export default function AdminDashboardPage() {
                     dataKey="revenue"
                     stroke="#6B8F71"
                     strokeWidth={2}
-                    dot={false}
-                    activeDot={{ r: 4 }}
+                    dot={{ r: 3, fill: "#6B8F71" }}
+                    activeDot={{ r: 5 }}
                   />
                 </LineChart>
               </ResponsiveContainer>
             </div>
+            )}
           </div>
 
           {/* Orders Trend + Category Pie */}
