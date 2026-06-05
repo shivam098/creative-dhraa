@@ -1,6 +1,6 @@
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useParams } from "next/navigation";
 import Image from "next/image";
 import { useState, useCallback } from "react";
@@ -43,6 +43,9 @@ interface Product {
   comparePrice: number | null;
   salePrice: number | null;
   discountLabel: string | null;
+  customFields: Record<string, string> | null;
+  minImages: number;
+  maxImages: number;
   category: { id: string; name: string; slug: string } | null;
   images: ProductImage[];
   variants: Variant[];
@@ -260,6 +263,21 @@ export default function ProductDetailPage() {
             </p>
           )}
 
+          {/* Custom Fields / Product Details */}
+          {product.customFields && Object.keys(product.customFields).length > 0 && (
+            <div className="space-y-2">
+              <h4 className="text-sm font-medium text-foreground">Product Details</h4>
+              <div className="rounded-lg border border-border bg-surface/50 divide-y divide-border">
+                {Object.entries(product.customFields).map(([key, value]) => (
+                  <div key={key} className="flex items-center justify-between px-4 py-2.5">
+                    <span className="text-xs font-medium text-muted uppercase tracking-wide">{key}</span>
+                    <span className="text-sm text-foreground">{value}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           {/* Variants */}
           {product.variants.length > 0 && (
             <div className="space-y-2">
@@ -337,16 +355,28 @@ export default function ProductDetailPage() {
           </div>
 
           {/* Image Upload */}
-          <div className="space-y-2">
-            <h4 className="text-sm font-medium text-foreground">
-              Upload Your Photos
-            </h4>
-            <ImageUploader
-              sessionId={sessionId}
-              maxFiles={5}
-              onUploadComplete={handleUploadComplete}
-            />
-          </div>
+          {product.maxImages > 0 && (
+            <div className="space-y-2">
+              <h4 className="text-sm font-medium text-foreground">
+                Upload Your Photos
+                {product.minImages > 0 && (
+                  <span className="ml-1 text-xs text-muted font-normal">
+                    (min {product.minImages}, max {product.maxImages})
+                  </span>
+                )}
+                {product.minImages === 0 && (
+                  <span className="ml-1 text-xs text-muted font-normal">
+                    (up to {product.maxImages})
+                  </span>
+                )}
+              </h4>
+              <ImageUploader
+                sessionId={sessionId}
+                maxFiles={product.maxImages}
+                onUploadComplete={handleUploadComplete}
+              />
+            </div>
+          )}
 
           {/* Quantity + Add to Cart */}
           <div className="flex items-center gap-4 pt-4 border-t border-border">
@@ -404,6 +434,291 @@ export default function ProductDetailPage() {
           </div>
         </motion.div>
       </div>
+
+      {/* Reviews Section */}
+      <ReviewSection slug={slug} />
     </div>
+  );
+}
+
+// ─── Star Rating Component ────────────────────────────────────────────────────
+
+function StarRating({
+  rating,
+  size = "sm",
+  interactive = false,
+  onRate,
+}: {
+  rating: number;
+  size?: "sm" | "md";
+  interactive?: boolean;
+  onRate?: (rating: number) => void;
+}) {
+  const sizeClass = size === "md" ? "h-5 w-5" : "h-4 w-4";
+
+  return (
+    <div className="flex gap-0.5">
+      {[1, 2, 3, 4, 5].map((star) => (
+        <button
+          key={star}
+          type="button"
+          disabled={!interactive}
+          onClick={() => onRate?.(star)}
+          className={interactive ? "cursor-pointer hover:scale-110 transition-transform" : "cursor-default"}
+        >
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            viewBox="0 0 24 24"
+            fill={star <= rating ? "currentColor" : "none"}
+            stroke="currentColor"
+            strokeWidth={star <= rating ? 0 : 1.5}
+            className={`${sizeClass} ${star <= rating ? "text-amber-400" : "text-border"}`}
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              d="M11.48 3.499a.562.562 0 0 1 1.04 0l2.125 5.111a.563.563 0 0 0 .475.345l5.518.442c.499.04.701.663.321.988l-4.204 3.602a.563.563 0 0 0-.182.557l1.285 5.385a.562.562 0 0 1-.84.61l-4.725-2.885a.562.562 0 0 0-.586 0L6.982 20.54a.562.562 0 0 1-.84-.61l1.285-5.386a.562.562 0 0 0-.182-.557l-4.204-3.602a.562.562 0 0 1 .321-.988l5.518-.442a.563.563 0 0 0 .475-.345L11.48 3.5Z"
+            />
+          </svg>
+        </button>
+      ))}
+    </div>
+  );
+}
+
+// ─── Reviews Section ──────────────────────────────────────────────────────────
+
+interface Review {
+  id: string;
+  customerName: string;
+  rating: number;
+  comment: string | null;
+  createdAt: string;
+}
+
+function ReviewSection({ slug }: { slug: string }) {
+  const queryClient = useQueryClient();
+  const [showForm, setShowForm] = useState(false);
+  const [reviewName, setReviewName] = useState("");
+  const [reviewRating, setReviewRating] = useState(5);
+  const [reviewComment, setReviewComment] = useState("");
+
+  const { data, isLoading } = useQuery({
+    queryKey: ["reviews", slug],
+    queryFn: async () => {
+      const res = await fetch(`/api/products/${slug}/reviews`);
+      if (!res.ok) throw new Error("Failed to fetch reviews");
+      return res.json() as Promise<{
+        reviews: Review[];
+        count: number;
+        avgRating: number;
+      }>;
+    },
+  });
+
+  const submitMutation = useMutation({
+    mutationFn: async (data: {
+      customerName: string;
+      rating: number;
+      comment?: string;
+    }) => {
+      const res = await fetch(`/api/products/${slug}/reviews`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || "Failed to submit review");
+      }
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["reviews", slug] });
+      setShowForm(false);
+      setReviewName("");
+      setReviewRating(5);
+      setReviewComment("");
+    },
+  });
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    submitMutation.mutate({
+      customerName: reviewName,
+      rating: reviewRating,
+      comment: reviewComment || undefined,
+    });
+  };
+
+  const reviews = data?.reviews || [];
+  const avgRating = data?.avgRating || 0;
+  const count = data?.count || 0;
+
+  return (
+    <motion.section
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ delay: 0.3 }}
+      className="mt-16 border-t border-border pt-12"
+    >
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="font-[family-name:var(--font-playfair)] text-2xl font-bold text-foreground">
+            Customer Reviews
+          </h2>
+          {count > 0 && (
+            <div className="mt-2 flex items-center gap-3">
+              <StarRating rating={Math.round(avgRating)} />
+              <span className="text-sm text-muted">
+                {avgRating.toFixed(1)} out of 5 ({count} review{count !== 1 ? "s" : ""})
+              </span>
+            </div>
+          )}
+        </div>
+        <button
+          onClick={() => setShowForm(!showForm)}
+          className="rounded-full border border-accent/30 bg-accent/5 px-5 py-2 text-sm font-medium text-accent hover:bg-accent hover:text-background transition-all"
+        >
+          Write a Review
+        </button>
+      </div>
+
+      {/* Review Form */}
+      <AnimatePresence>
+        {showForm && (
+          <motion.form
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: "auto", opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            onSubmit={handleSubmit}
+            className="mt-6 overflow-hidden rounded-xl border border-border bg-surface/50 p-6 space-y-4"
+          >
+            <div>
+              <label className="text-sm font-medium text-foreground">Your Name</label>
+              <input
+                type="text"
+                value={reviewName}
+                onChange={(e) => setReviewName(e.target.value)}
+                required
+                minLength={2}
+                maxLength={50}
+                className="mt-1 w-full rounded-lg border border-border bg-background px-4 py-2.5 text-sm text-foreground placeholder:text-muted focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+                placeholder="Enter your name"
+              />
+            </div>
+
+            <div>
+              <label className="text-sm font-medium text-foreground">Rating</label>
+              <div className="mt-1">
+                <StarRating
+                  rating={reviewRating}
+                  size="md"
+                  interactive
+                  onRate={setReviewRating}
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="text-sm font-medium text-foreground">Your Review (optional)</label>
+              <textarea
+                value={reviewComment}
+                onChange={(e) => setReviewComment(e.target.value)}
+                maxLength={500}
+                rows={3}
+                className="mt-1 w-full rounded-lg border border-border bg-background px-4 py-2.5 text-sm text-foreground placeholder:text-muted focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent resize-none"
+                placeholder="Share your experience with this product..."
+              />
+            </div>
+
+            <div className="flex items-center gap-3">
+              <button
+                type="submit"
+                disabled={submitMutation.isPending || !reviewName.trim()}
+                className="rounded-full bg-accent px-6 py-2.5 text-sm font-semibold text-background hover:bg-accent-hover disabled:opacity-50 transition-all"
+              >
+                {submitMutation.isPending ? "Submitting..." : "Submit Review"}
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowForm(false)}
+                className="text-sm text-muted hover:text-foreground transition-colors"
+              >
+                Cancel
+              </button>
+            </div>
+
+            {submitMutation.isSuccess && (
+              <p className="text-sm text-accent">
+                Thank you! Your review has been submitted and will appear after approval.
+              </p>
+            )}
+            {submitMutation.isError && (
+              <p className="text-sm text-red-500">
+                {submitMutation.error?.message || "Something went wrong. Please try again."}
+              </p>
+            )}
+          </motion.form>
+        )}
+      </AnimatePresence>
+
+      {/* Reviews List */}
+      <div className="mt-8 space-y-6">
+        {isLoading ? (
+          <div className="space-y-4">
+            {[1, 2, 3].map((i) => (
+              <div key={i} className="rounded-xl border border-border p-5 space-y-3">
+                <div className="h-4 w-1/4 skeleton" />
+                <div className="h-4 w-3/4 skeleton" />
+              </div>
+            ))}
+          </div>
+        ) : reviews.length === 0 ? (
+          <div className="text-center py-12">
+            <p className="text-muted">No reviews yet. Be the first to review this product!</p>
+          </div>
+        ) : (
+          reviews.map((review) => (
+            <motion.div
+              key={review.id}
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="rounded-xl border border-border bg-surface/30 p-5"
+            >
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-9 w-9 items-center justify-center rounded-full bg-accent/10">
+                    <span className="text-sm font-bold text-accent">
+                      {review.customerName[0].toUpperCase()}
+                    </span>
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-foreground">
+                      {review.customerName}
+                    </p>
+                    <StarRating rating={review.rating} />
+                  </div>
+                </div>
+                <span className="text-xs text-muted">
+                  {new Date(review.createdAt).toLocaleDateString("en-IN", {
+                    day: "numeric",
+                    month: "short",
+                    year: "numeric",
+                  })}
+                </span>
+              </div>
+              {review.comment && (
+                <p className="mt-3 text-sm text-muted leading-relaxed">
+                  {review.comment}
+                </p>
+              )}
+            </motion.div>
+          ))
+        )}
+      </div>
+    </motion.section>
   );
 }

@@ -36,6 +36,11 @@ export async function PATCH(
     if (data.comparePrice !== undefined) updateData.comparePrice = data.comparePrice.toFixed(2);
     if (data.categoryId !== undefined) updateData.categoryId = data.categoryId;
     if (data.status !== undefined) updateData.status = data.status;
+    if (data.badge !== undefined) updateData.badge = data.badge;
+    if (data.sortOrder !== undefined) updateData.sortOrder = data.sortOrder;
+    if (data.customFields !== undefined) updateData.customFields = data.customFields;
+    if (data.minImages !== undefined) updateData.minImages = data.minImages;
+    if (data.maxImages !== undefined) updateData.maxImages = data.maxImages;
 
     const [updated] = await db
       .update(products)

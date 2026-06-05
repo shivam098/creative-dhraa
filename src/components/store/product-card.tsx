@@ -28,6 +28,7 @@ interface ProductCardProps {
   price: number | null;
   comparePrice: number | null;
   salePrice?: number | null;
+  badge?: string | null;
   image: { url: string; altText: string | null } | null;
 }
 
@@ -38,6 +39,7 @@ export default function ProductCard({
   price,
   comparePrice,
   salePrice,
+  badge,
   image,
 }: ProductCardProps) {
   const [imgError, setImgError] = useState(false);
@@ -116,6 +118,18 @@ export default function ProductCard({
           {discount && discount > 0 && (
             <span className="absolute top-3 left-3 rounded-full bg-accent px-2.5 py-0.5 text-xs font-bold text-background">
               -{discount}%
+            </span>
+          )}
+
+          {/* Product Badge (Top Seller, New Arrival, etc.) */}
+          {badge && !discount && (
+            <span className="absolute top-3 left-3 rounded-full bg-foreground/90 px-2.5 py-0.5 text-xs font-bold text-background">
+              {badge}
+            </span>
+          )}
+          {badge && discount && discount > 0 && (
+            <span className="absolute top-3 right-3 rounded-full bg-foreground/90 px-2.5 py-0.5 text-xs font-bold text-background">
+              {badge}
             </span>
           )}
 

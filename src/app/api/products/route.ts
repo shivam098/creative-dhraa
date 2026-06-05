@@ -82,6 +82,7 @@ export async function GET(request: NextRequest) {
           description: products.description,
           price: products.price,
           comparePrice: products.comparePrice,
+          badge: products.badge,
           categoryId: products.categoryId,
         })
         .from(products)

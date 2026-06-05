@@ -31,10 +31,16 @@ export async function GET(request: NextRequest) {
           id: products.id,
           name: products.name,
           slug: products.slug,
+          description: products.description,
           price: products.price,
           comparePrice: products.comparePrice,
           status: products.status,
+          badge: products.badge,
+          sortOrder: products.sortOrder,
           categoryId: products.categoryId,
+          customFields: products.customFields,
+          minImages: products.minImages,
+          maxImages: products.maxImages,
           createdAt: products.createdAt,
         })
         .from(products)
@@ -88,15 +94,18 @@ export async function PATCH(request: NextRequest) {
     let updated = 0;
 
     for (const item of updates) {
-      await db
-        .update(products)
-        .set({
-          price: item.price.toFixed(2),
-          comparePrice: item.comparePrice?.toFixed(2) || null,
-          updatedAt: new Date(),
-        })
-        .where(eq(products.id, item.productId));
-      updated++;
+      const setData: Record<string, unknown> = { updatedAt: new Date() };
+      if (item.price !== undefined) setData.price = item.price.toFixed(2);
+      if (item.comparePrice !== undefined) setData.comparePrice = item.comparePrice.toFixed(2);
+
+      // Only update if there's something to change besides updatedAt
+      if (Object.keys(setData).length > 1) {
+        await db
+          .update(products)
+          .set(setData)
+          .where(eq(products.id, item.productId));
+        updated++;
+      }
     }
 
     return NextResponse.json({ success: true, updated });
@@ -142,6 +151,9 @@ export async function POST(request: NextRequest) {
         comparePrice: data.comparePrice?.toFixed(2) || null,
         categoryId: data.categoryId,
         status: data.status,
+        customFields: data.customFields || null,
+        minImages: data.minImages ?? 0,
+        maxImages: data.maxImages ?? 5,
       })
       .returning();
 

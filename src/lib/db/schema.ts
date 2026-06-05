@@ -65,6 +65,11 @@ export const products = pgTable("products", {
   comparePrice: decimal("compare_price", { precision: 10, scale: 2 }),
   categoryId: uuid("category_id").references(() => categories.id),
   status: productStatusEnum("status").default("draft").notNull(),
+  customFields: jsonb("custom_fields").$type<Record<string, string>>(), // e.g. { "Song Name": "Happy Birthday", "Frame Material": "Acrylic" }
+  minImages: integer("min_images").default(0).notNull(), // minimum customer photos required
+  maxImages: integer("max_images").default(5).notNull(), // maximum customer photos allowed
+  badge: text("badge"), // "Top Seller", "New Arrival", "Best Value", etc.
+  sortOrder: integer("sort_order").default(0).notNull(),
   instagramPostId: text("instagram_post_id"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
@@ -204,6 +209,7 @@ export const coupons = pgTable("coupons", {
   usageLimit: integer("usage_limit"), // null = unlimited
   usageCount: integer("usage_count").default(0).notNull(),
   isActive: boolean("is_active").default(true).notNull(),
+  isPublic: boolean("is_public").default(false).notNull(), // Show on storefront banner
   startsAt: timestamp("starts_at").defaultNow().notNull(),
   expiresAt: timestamp("expires_at"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
@@ -239,6 +245,20 @@ export const categoryDiscounts = pgTable("category_discounts", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
+// ─── Reviews ──────────────────────────────────────────────────────────────────
+
+export const reviews = pgTable("reviews", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  productId: uuid("product_id")
+    .notNull()
+    .references(() => products.id, { onDelete: "cascade" }),
+  customerName: text("customer_name").notNull(),
+  rating: integer("rating").notNull(), // 1-5
+  comment: text("comment"),
+  isApproved: boolean("is_approved").default(false).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
 // ─── Relations ────────────────────────────────────────────────────────────────
 
 export const categoriesRelations = relations(categories, ({ many }) => ({
@@ -253,6 +273,7 @@ export const productsRelations = relations(products, ({ one, many }) => ({
   images: many(productImages),
   variants: many(productVariants),
   templates: many(designTemplates),
+  reviews: many(reviews),
 }));
 
 export const productImagesRelations = relations(productImages, ({ one }) => ({
@@ -335,3 +356,10 @@ export const categoryDiscountsRelations = relations(
     }),
   })
 );
+
+export const reviewsRelations = relations(reviews, ({ one }) => ({
+  product: one(products, {
+    fields: [reviews.productId],
+    references: [products.id],
+  }),
+}));

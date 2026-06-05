@@ -96,6 +96,11 @@ export const productUpdateSchema = z.object({
   comparePrice: z.number().positive().optional(),
   categoryId: z.string().uuid().optional(),
   status: z.enum(["draft", "published", "archived"]).optional(),
+  badge: z.string().max(30).nullable().optional(),
+  sortOrder: z.number().int().min(0).optional(),
+  customFields: z.record(z.string(), z.string()).nullable().optional(),
+  minImages: z.number().int().min(0).max(50).optional(),
+  maxImages: z.number().int().min(1).max(50).optional(),
 });
 
 export type ProductUpdateData = z.infer<typeof productUpdateSchema>;
@@ -108,6 +113,9 @@ export const productCreateSchema = z.object({
   categoryId: z.string().uuid("Select a category"),
   status: z.enum(["draft", "published"]).default("published"),
   imageUrl: z.string().url("Enter a valid image URL").optional(),
+  customFields: z.record(z.string(), z.string()).nullable().optional(),
+  minImages: z.number().int().min(0).max(50).optional(),
+  maxImages: z.number().int().min(1).max(50).optional(),
 });
 
 export type ProductCreateData = z.infer<typeof productCreateSchema>;
@@ -116,7 +124,7 @@ export const bulkPriceUpdateSchema = z.object({
   updates: z.array(
     z.object({
       productId: z.string().uuid(),
-      price: z.number().positive(),
+      price: z.number().positive().optional(),
       comparePrice: z.number().positive().optional(),
     })
   ),

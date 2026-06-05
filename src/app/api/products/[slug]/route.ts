@@ -155,6 +155,9 @@ export async function GET(
         comparePrice: p.comparePrice ? Number(p.comparePrice) : null,
         salePrice,
         discountLabel,
+        customFields: p.customFields || null,
+        minImages: p.minImages ?? 0,
+        maxImages: p.maxImages ?? 5,
         category: category[0] || null,
         images: images.map((img) => ({
           id: img.id,

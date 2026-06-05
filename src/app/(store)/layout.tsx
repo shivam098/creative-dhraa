@@ -4,11 +4,80 @@ import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
 import { useState } from "react";
 import { usePathname } from "next/navigation";
+import { useQuery } from "@tanstack/react-query";
 import { useCartStore } from "@/stores/cart-store";
 import CartDrawer from "@/components/store/cart-drawer";
 import Magnetic from "@/components/animations/magnetic";
 import Preloader from "@/components/animations/preloader";
 import SmoothScroll from "@/components/animations/smooth-scroll";
+
+// ─── Coupon Banner ────────────────────────────────────────────────────────────
+
+function CouponBanner() {
+  const [dismissed, setDismissed] = useState(false);
+
+  const { data } = useQuery({
+    queryKey: ["public-coupons"],
+    queryFn: async () => {
+      const res = await fetch("/api/coupons/public");
+      if (!res.ok) return { coupons: [] };
+      return res.json() as Promise<{
+        coupons: Array<{
+          id: string;
+          code: string;
+          description: string | null;
+          discountType: string;
+          discountValue: string;
+          minOrderAmount: string | null;
+        }>;
+      }>;
+    },
+    staleTime: 5 * 60 * 1000, // Cache for 5 minutes
+  });
+
+  const coupons = data?.coupons || [];
+
+  if (dismissed || coupons.length === 0) return null;
+
+  const coupon = coupons[0]; // Show the first active public coupon
+  const discountText =
+    coupon.discountType === "percentage"
+      ? `${parseFloat(coupon.discountValue)}% OFF`
+      : `₹${parseFloat(coupon.discountValue)} OFF`;
+
+  return (
+    <motion.div
+      initial={{ height: 0, opacity: 0 }}
+      animate={{ height: "auto", opacity: 1 }}
+      exit={{ height: 0, opacity: 0 }}
+      className="relative overflow-hidden bg-accent text-background"
+    >
+      <div className="mx-auto flex max-w-7xl items-center justify-center gap-3 px-4 py-2.5 text-center text-sm">
+        <span className="font-medium">
+          {coupon.description || `Use code`}{" "}
+          <span className="inline-flex items-center gap-1 rounded bg-background/20 px-2 py-0.5 font-bold tracking-wide">
+            {coupon.code}
+          </span>{" "}
+          for {discountText}
+          {coupon.minOrderAmount && parseFloat(coupon.minOrderAmount) > 0 && (
+            <span className="opacity-80">
+              {" "}on orders above ₹{parseFloat(coupon.minOrderAmount)}
+            </span>
+          )}
+        </span>
+        <button
+          onClick={() => setDismissed(true)}
+          className="absolute right-3 top-1/2 -translate-y-1/2 p-1 opacity-70 hover:opacity-100 transition-opacity"
+          aria-label="Dismiss"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="h-4 w-4">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" />
+          </svg>
+        </button>
+      </div>
+    </motion.div>
+  );
+}
 
 export default function StoreLayout({
   children,
@@ -173,6 +242,9 @@ export default function StoreLayout({
         </AnimatePresence>
       </header>
 
+      {/* Coupon Banner */}
+      <CouponBanner />
+
       {/* Main Content with page transition */}
       <main className="flex-1">
         <motion.div
@@ -250,7 +322,7 @@ export default function StoreLayout({
               <ul className="mt-3 space-y-2">
                 <li>
                   <a
-                    href="https://wa.me/917742377498"
+                    href="https://wa.me/918839268915"
                     target="_blank"
                     rel="noopener noreferrer"
                     className="text-sm text-muted hover:text-accent transition-colors"
@@ -275,7 +347,7 @@ export default function StoreLayout({
 
       {/* WhatsApp Floating Button — positioned to avoid CTA overlap */}
       <a
-        href="https://wa.me/917742377498"
+        href="https://wa.me/918839268915"
         target="_blank"
         rel="noopener noreferrer"
         className="fixed bottom-6 right-6 z-40 flex h-12 w-12 items-center justify-center rounded-full bg-[#25D366] text-white shadow-lg transition-transform hover:scale-110 sm:h-14 sm:w-14 md:bottom-8 md:right-8"

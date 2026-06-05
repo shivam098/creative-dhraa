@@ -9,6 +9,7 @@ interface Product {
   price: number | null;
   comparePrice: number | null;
   salePrice?: number | null;
+  badge?: string | null;
   image: { url: string; altText: string | null } | null;
 }
 

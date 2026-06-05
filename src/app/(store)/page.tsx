@@ -207,6 +207,114 @@ function HeroVisual() {
   );
 }
 
+// ─── On Sale Section ──────────────────────────────────────────────────────────
+function OnSaleProducts() {
+  const { data, isLoading } = useQuery({
+    queryKey: ["on-sale-products"],
+    queryFn: async () => {
+      const res = await fetch("/api/products/on-sale");
+      if (!res.ok) throw new Error("Failed to fetch sale products");
+      return res.json() as Promise<{
+        products: Array<{
+          id: string;
+          name: string;
+          slug: string;
+          price: number | null;
+          comparePrice: number | null;
+          salePrice: number;
+          discountLabel: string;
+          badge: string | null;
+          image: { url: string; altText: string | null } | null;
+        }>;
+        count: number;
+      }>;
+    },
+  });
+
+  const products = data?.products || [];
+
+  // Don't render if no products on sale
+  if (!isLoading && products.length === 0) return null;
+
+  return (
+    <section className="relative overflow-hidden border-t border-border bg-gradient-to-b from-accent/[0.02] to-transparent px-4 py-32 sm:px-6 lg:px-8">
+      {/* Subtle background accent */}
+      <div className="absolute top-0 left-1/2 -translate-x-1/2 h-64 w-96 bg-accent/5 rounded-full blur-3xl" />
+
+      <div className="relative mx-auto max-w-7xl">
+        <ScrollReveal>
+          <div className="flex items-center justify-center gap-3">
+            <div className="h-px flex-1 max-w-[80px] bg-gradient-to-r from-transparent to-accent/30" />
+            <span className="rounded-full bg-accent/10 px-3 py-1 text-xs font-semibold uppercase tracking-wider text-accent">
+              Limited Time
+            </span>
+            <div className="h-px flex-1 max-w-[80px] bg-gradient-to-l from-transparent to-accent/30" />
+          </div>
+          <h2 className="mt-4 text-center font-[family-name:var(--font-playfair)] text-4xl font-bold sm:text-5xl md:text-6xl lg:text-7xl">
+            On Sale
+          </h2>
+        </ScrollReveal>
+        <ScrollReveal delay={0.1}>
+          <p className="mt-4 text-center text-muted text-lg md:text-xl">
+            Grab these personalized gifts at special prices
+          </p>
+        </ScrollReveal>
+
+        <div className="mt-16">
+          {isLoading ? (
+            <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+              {Array.from({ length: 4 }).map((_, i) => (
+                <div key={i} className="overflow-hidden rounded-xl border border-border bg-surface">
+                  <div className="aspect-square skeleton" />
+                  <div className="p-4 space-y-2">
+                    <div className="h-4 w-3/4 skeleton" />
+                    <div className="h-4 w-1/2 skeleton" />
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <StaggerGrid
+              className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4"
+              staggerDelay={0.08}
+            >
+              {products.map((product) => (
+                <ProductCard
+                  key={product.id}
+                  id={product.id}
+                  name={product.name}
+                  slug={product.slug}
+                  price={product.price}
+                  comparePrice={product.comparePrice}
+                  salePrice={product.salePrice}
+                  badge={product.badge}
+                  image={product.image}
+                />
+              ))}
+            </StaggerGrid>
+          )}
+        </div>
+
+        <ScrollReveal delay={0.2}>
+          <div className="mt-12 text-center">
+            <Magnetic strength={0.12}>
+              <Link
+                href="/shop"
+                className="group inline-flex items-center gap-2 rounded-full border border-accent/30 bg-accent/5 px-8 py-3.5 text-sm font-semibold text-accent transition-all hover:bg-accent hover:text-background hover:border-accent hover:shadow-lg hover:shadow-accent/20"
+              >
+                View All Deals
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="h-4 w-4 transition-transform group-hover:translate-x-1">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5 21 12m0 0-7.5 7.5M21 12H3" />
+                </svg>
+              </Link>
+            </Magnetic>
+          </div>
+        </ScrollReveal>
+      </div>
+    </section>
+  );
+}
+
 function FeaturedProducts() {
   const { data, isLoading } = useQuery({
     queryKey: ["featured-products"],
@@ -220,6 +328,8 @@ function FeaturedProducts() {
           slug: string;
           price: number | null;
           comparePrice: number | null;
+          salePrice?: number | null;
+          badge?: string | null;
           image: { url: string; altText: string | null } | null;
         }>;
       }>;
@@ -325,7 +435,7 @@ export default function HomePage() {
           >
             <span className="h-1.5 w-1.5 rounded-full bg-accent animate-pulse" />
             <span className="text-xs font-medium uppercase tracking-widest text-accent">
-              Personalized in Jaipur since 2022
+              Personalized in India since 2022
             </span>
           </motion.div>
 
@@ -460,6 +570,9 @@ export default function HomePage() {
         </div>
       </section>
 
+      {/* ON SALE */}
+      <OnSaleProducts />
+
       {/* FEATURED PRODUCTS */}
       <FeaturedProducts />
 
@@ -520,7 +633,7 @@ export default function HomePage() {
               </div>
               <div className="h-4 w-px bg-border" />
               <div className="flex items-center gap-2">
-                <span className="text-accent font-semibold">Based in</span> Jaipur, Rajasthan
+                <span className="text-accent font-semibold">Based in</span> India
               </div>
             </div>
           </ScrollReveal>
@@ -585,7 +698,7 @@ export default function HomePage() {
             <div className="mt-10 flex flex-col items-center gap-4 sm:flex-row sm:justify-center">
               <Magnetic strength={0.12}>
                 <a
-                  href="https://wa.me/917742377498?text=Hi%2C%20I%20have%20a%20custom%20gift%20idea!"
+                  href="https://wa.me/918839268915?text=Hi%2C%20I%20have%20a%20custom%20gift%20idea!"
                   target="_blank"
                   rel="noopener noreferrer"
                   className="group relative inline-flex items-center gap-2 overflow-hidden rounded-full bg-accent px-10 py-4 text-sm font-semibold text-background transition-all hover:shadow-2xl hover:shadow-accent/25"

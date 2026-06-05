@@ -67,9 +67,10 @@ export function useUpload(options: UseUploadOptions): UseUploadReturn {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            file_type: file.type,
-            file_size: file.size,
-            session_id: sessionId,
+            filename: file.name,
+            contentType: file.type,
+            fileSizeBytes: file.size,
+            sessionId,
           }),
         });
 
@@ -78,11 +79,11 @@ export function useUpload(options: UseUploadOptions): UseUploadReturn {
           throw new Error(data.error || "Failed to get upload URL");
         }
 
-        const { upload_url, upload_id, r2_key } = await presignResponse.json();
+        const { uploadUrl, uploadId, publicUrl } = await presignResponse.json();
         setProgress(30);
 
         // Step 2: Upload directly to R2
-        const uploadResponse = await fetch(upload_url, {
+        const uploadResponse = await fetch(uploadUrl, {
           method: "PUT",
           headers: { "Content-Type": file.type },
           body: file,
@@ -94,12 +95,10 @@ export function useUpload(options: UseUploadOptions): UseUploadReturn {
 
         setProgress(100);
 
-        const r2Url = `${process.env.NEXT_PUBLIC_R2_PUBLIC_URL || ""}/${r2_key}`;
-
         return {
-          uploadId: upload_id,
-          r2Url,
-          r2Key: r2_key,
+          uploadId,
+          r2Url: publicUrl,
+          r2Key: publicUrl.split("/").slice(-2).join("/"),
         };
       } catch (err) {
         const message = err instanceof Error ? err.message : "Upload failed";
