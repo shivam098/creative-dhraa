@@ -41,6 +41,8 @@ interface Product {
   description: string | null;
   price: number | null;
   comparePrice: number | null;
+  salePrice: number | null;
+  discountLabel: string | null;
   category: { id: string; name: string; slug: string } | null;
   images: ProductImage[];
   variants: Variant[];
@@ -85,10 +87,7 @@ export default function ProductDetailPage() {
   );
 
   const handleAddToCart = () => {
-    if (!product || !product.price) return;
-
-    const variantPrice = selectedVariant?.priceModifier || 0;
-    const unitPrice = product.price + variantPrice;
+    if (!product || !effectivePrice) return;
 
     addItem({
       productId: product.id,
@@ -99,7 +98,7 @@ export default function ProductDetailPage() {
       templateId: selectedTemplate?.id,
       templateName: selectedTemplate?.name,
       quantity,
-      unitPrice,
+      unitPrice: effectivePrice,
       customization: {
         templateId: selectedTemplate?.id,
         textFields,
@@ -144,6 +143,13 @@ export default function ProductDetailPage() {
   const currentPrice = product.price
     ? product.price + (selectedVariant?.priceModifier || 0)
     : null;
+
+  // Use sale price if available (applies to base price only)
+  const effectivePrice = product.salePrice && product.price && product.salePrice < product.price
+    ? product.salePrice + (selectedVariant?.priceModifier || 0)
+    : currentPrice;
+
+  const showStrikethrough = effectivePrice && currentPrice && effectivePrice < currentPrice;
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
@@ -220,14 +226,24 @@ export default function ProductDetailPage() {
               {product.name}
             </h1>
             <div className="mt-3 flex items-center gap-3">
-              {currentPrice ? (
+              {effectivePrice ? (
                 <>
                   <span className="text-2xl font-bold text-accent">
-                    {formatPrice(currentPrice)}
+                    {formatPrice(effectivePrice)}
                   </span>
-                  {product.comparePrice && product.comparePrice > currentPrice && (
+                  {showStrikethrough && (
+                    <span className="text-lg text-muted line-through">
+                      {formatPrice(currentPrice)}
+                    </span>
+                  )}
+                  {!showStrikethrough && product.comparePrice && product.comparePrice > effectivePrice && (
                     <span className="text-lg text-muted line-through">
                       {formatPrice(product.comparePrice)}
+                    </span>
+                  )}
+                  {product.discountLabel && (
+                    <span className="rounded-full bg-accent/10 px-2.5 py-0.5 text-xs font-semibold text-accent">
+                      {product.discountLabel}
                     </span>
                   )}
                 </>
@@ -354,7 +370,7 @@ export default function ProductDetailPage() {
             {/* Add to Cart Button */}
             <button
               onClick={handleAddToCart}
-              disabled={!product.price || addedToCart}
+              disabled={!effectivePrice || addedToCart}
               className="flex-1 rounded-full bg-accent py-3 text-sm font-semibold text-background hover:bg-accent-hover disabled:opacity-50 disabled:cursor-not-allowed transition-all glow-accent"
             >
               <AnimatePresence mode="wait">
@@ -378,8 +394,8 @@ export default function ProductDetailPage() {
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, y: -10 }}
                   >
-                    {product.price
-                      ? `Add to Cart — ${formatPrice(currentPrice! * quantity)}`
+                    {effectivePrice
+                      ? `Add to Cart — ${formatPrice(effectivePrice * quantity)}`
                       : "Contact for Price"}
                   </motion.span>
                 )}

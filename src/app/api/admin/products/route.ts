@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { products, productImages, categories } from "@/lib/db/schema";
 import { verifyAdmin } from "@/lib/auth/middleware";
-import { productUpdateSchema, bulkPriceUpdateSchema } from "@/lib/utils/validators";
+import { productUpdateSchema, bulkPriceUpdateSchema, productCreateSchema, slugify } from "@/lib/utils/validators";
 import { eq, desc, sql } from "drizzle-orm";
 
 /**
@@ -102,6 +102,63 @@ export async function PATCH(request: NextRequest) {
     return NextResponse.json({ success: true, updated });
   } catch (error) {
     console.error("Bulk update error:", error);
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+  }
+}
+
+/**
+ * POST /api/admin/products — Create a new product
+ */
+export async function POST(request: NextRequest) {
+  const authResult = await verifyAdmin(request);
+  if (authResult instanceof NextResponse) return authResult;
+
+  try {
+    const body = await request.json();
+    const parsed = productCreateSchema.safeParse(body);
+
+    if (!parsed.success) {
+      return NextResponse.json(
+        { error: "Invalid data", details: parsed.error.flatten() },
+        { status: 400 }
+      );
+    }
+
+    const data = parsed.data;
+
+    // Generate slug
+    const baseSlug = slugify(data.name);
+    const suffix = Math.random().toString(36).slice(2, 6);
+    const slug = `${baseSlug}-${suffix}`;
+
+    // Create product
+    const [product] = await db
+      .insert(products)
+      .values({
+        name: data.name,
+        slug,
+        description: data.description || null,
+        price: data.price.toFixed(2),
+        comparePrice: data.comparePrice?.toFixed(2) || null,
+        categoryId: data.categoryId,
+        status: data.status,
+      })
+      .returning();
+
+    // Add primary image if provided
+    if (data.imageUrl) {
+      await db.insert(productImages).values({
+        productId: product.id,
+        url: data.imageUrl,
+        altText: data.name,
+        position: 0,
+        isPrimary: true,
+      });
+    }
+
+    return NextResponse.json({ product }, { status: 201 });
+  } catch (error) {
+    console.error("Product create error:", error);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }

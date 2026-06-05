@@ -27,6 +27,7 @@ interface ProductCardProps {
   slug: string;
   price: number | null;
   comparePrice: number | null;
+  salePrice?: number | null;
   image: { url: string; altText: string | null } | null;
 }
 
@@ -36,12 +37,18 @@ export default function ProductCard({
   slug,
   price,
   comparePrice,
+  salePrice,
   image,
 }: ProductCardProps) {
   const [imgError, setImgError] = useState(false);
+
+  // Determine display price and original price for strikethrough
+  const displayPrice = salePrice && price && salePrice < price ? salePrice : price;
+  const originalPrice = salePrice && price && salePrice < price ? price : comparePrice;
+
   const discount =
-    price && comparePrice
-      ? Math.round(((comparePrice - price) / comparePrice) * 100)
+    displayPrice && originalPrice && originalPrice > displayPrice
+      ? Math.round(((originalPrice - displayPrice) / originalPrice) * 100)
       : null;
 
   const showFallback = !image || imgError;
@@ -127,14 +134,14 @@ export default function ProductCard({
             {name}
           </h3>
           <div className="mt-2 flex items-center gap-2">
-            {price ? (
+            {displayPrice ? (
               <>
                 <span className="text-base font-bold text-accent">
-                  {formatPrice(price)}
+                  {formatPrice(displayPrice)}
                 </span>
-                {comparePrice && comparePrice > price && (
+                {originalPrice && originalPrice > displayPrice && (
                   <span className="text-xs text-muted line-through">
-                    {formatPrice(comparePrice)}
+                    {formatPrice(originalPrice)}
                   </span>
                 )}
               </>

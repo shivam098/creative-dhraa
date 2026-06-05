@@ -39,6 +39,11 @@ export const uploadStatusEnum = pgEnum("upload_status", [
   "orphaned",
 ]);
 
+export const discountTypeEnum = pgEnum("discount_type", [
+  "percentage",
+  "flat",
+]);
+
 // ─── Categories ───────────────────────────────────────────────────────────────
 
 export const categories = pgTable("categories", {
@@ -186,6 +191,54 @@ export const adminUsers = pgTable("admin_users", {
   lastLoginAt: timestamp("last_login_at"),
 });
 
+// ─── Coupons ──────────────────────────────────────────────────────────────────
+
+export const coupons = pgTable("coupons", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  code: text("code").notNull().unique(),
+  description: text("description"),
+  discountType: discountTypeEnum("discount_type").notNull(),
+  discountValue: decimal("discount_value", { precision: 10, scale: 2 }).notNull(), // % or flat INR
+  minOrderAmount: decimal("min_order_amount", { precision: 10, scale: 2 }).default("0"),
+  maxDiscountAmount: decimal("max_discount_amount", { precision: 10, scale: 2 }), // cap for % discounts
+  usageLimit: integer("usage_limit"), // null = unlimited
+  usageCount: integer("usage_count").default(0).notNull(),
+  isActive: boolean("is_active").default(true).notNull(),
+  startsAt: timestamp("starts_at").defaultNow().notNull(),
+  expiresAt: timestamp("expires_at"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// ─── Product Discounts (sale price overrides) ─────────────────────────────────
+
+export const productDiscounts = pgTable("product_discounts", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  productId: uuid("product_id")
+    .notNull()
+    .references(() => products.id, { onDelete: "cascade" }),
+  discountType: discountTypeEnum("discount_type").notNull(),
+  discountValue: decimal("discount_value", { precision: 10, scale: 2 }).notNull(),
+  isActive: boolean("is_active").default(true).notNull(),
+  startsAt: timestamp("starts_at").defaultNow().notNull(),
+  expiresAt: timestamp("expires_at"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// ─── Category Discounts (e.g. 20% off all Keychains) ─────────────────────────
+
+export const categoryDiscounts = pgTable("category_discounts", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  categoryId: uuid("category_id")
+    .notNull()
+    .references(() => categories.id, { onDelete: "cascade" }),
+  discountType: discountTypeEnum("discount_type").notNull(),
+  discountValue: decimal("discount_value", { precision: 10, scale: 2 }).notNull(),
+  isActive: boolean("is_active").default(true).notNull(),
+  startsAt: timestamp("starts_at").defaultNow().notNull(),
+  expiresAt: timestamp("expires_at"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
 // ─── Relations ────────────────────────────────────────────────────────────────
 
 export const categoriesRelations = relations(categories, ({ many }) => ({
@@ -259,6 +312,26 @@ export const customerUploadsRelations = relations(
     orderItem: one(orderItems, {
       fields: [customerUploads.orderItemId],
       references: [orderItems.id],
+    }),
+  })
+);
+
+export const productDiscountsRelations = relations(
+  productDiscounts,
+  ({ one }) => ({
+    product: one(products, {
+      fields: [productDiscounts.productId],
+      references: [products.id],
+    }),
+  })
+);
+
+export const categoryDiscountsRelations = relations(
+  categoryDiscounts,
+  ({ one }) => ({
+    category: one(categories, {
+      fields: [categoryDiscounts.categoryId],
+      references: [categories.id],
     }),
   })
 );

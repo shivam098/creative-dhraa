@@ -122,6 +122,14 @@ export default function CheckoutPage() {
   const [isProcessing, setIsProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [mockPaymentStep, setMockPaymentStep] = useState<"idle" | "confirming" | "processing">("idle");
+  const [couponCode, setCouponCode] = useState("");
+  const [couponLoading, setCouponLoading] = useState(false);
+  const [couponError, setCouponError] = useState<string | null>(null);
+  const [appliedCoupon, setAppliedCoupon] = useState<{
+    code: string;
+    discountAmount: number;
+    description?: string;
+  } | null>(null);
   const [orderData, setOrderData] = useState<{
     orderId: string;
     orderNumber: string;
@@ -146,11 +154,48 @@ export default function CheckoutPage() {
   });
 
   const shippingCost = subtotal >= 499 ? 0 : 49;
-  const total = subtotal + shippingCost;
+  const discountAmount = appliedCoupon?.discountAmount || 0;
+  const total = subtotal + shippingCost - discountAmount;
 
   const updateField = (field: string, value: string) => {
     setForm((prev) => ({ ...prev, [field]: value }));
     setError(null);
+  };
+
+  const applyCoupon = async () => {
+    if (!couponCode.trim()) return;
+    setCouponLoading(true);
+    setCouponError(null);
+
+    try {
+      const res = await fetch("/api/coupons/validate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ code: couponCode.trim(), subtotal }),
+      });
+      const data = await res.json();
+
+      if (data.valid) {
+        setAppliedCoupon({
+          code: data.coupon.code,
+          discountAmount: data.discountAmount,
+          description: data.coupon.description,
+        });
+        setCouponError(null);
+      } else {
+        setCouponError(data.error || "Invalid coupon code");
+        setAppliedCoupon(null);
+      }
+    } catch {
+      setCouponError("Failed to validate coupon");
+    }
+    setCouponLoading(false);
+  };
+
+  const removeCoupon = () => {
+    setAppliedCoupon(null);
+    setCouponCode("");
+    setCouponError(null);
   };
 
   const loadRazorpayScript = (): Promise<boolean> => {
@@ -248,6 +293,8 @@ export default function CheckoutPage() {
               : undefined,
           })),
           notes: form.notes || undefined,
+          couponCode: appliedCoupon?.code || undefined,
+          discountAmount: discountAmount || undefined,
         }),
       });
 
@@ -547,6 +594,50 @@ export default function CheckoutPage() {
               ))}
             </div>
 
+            {/* Coupon Code */}
+            <div className="border-t border-border pt-4">
+              {appliedCoupon ? (
+                <div className="flex items-center justify-between rounded-lg bg-success/5 border border-success/20 px-3 py-2">
+                  <div>
+                    <p className="text-sm font-medium text-success">
+                      {appliedCoupon.code} applied
+                    </p>
+                    <p className="text-xs text-muted">
+                      -{formatPrice(appliedCoupon.discountAmount)} off
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={removeCoupon}
+                    className="text-xs text-error hover:underline"
+                  >
+                    Remove
+                  </button>
+                </div>
+              ) : (
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={couponCode}
+                    onChange={(e) => { setCouponCode(e.target.value.toUpperCase()); setCouponError(null); }}
+                    placeholder="Coupon code"
+                    className="flex-1 rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground placeholder-muted focus:border-accent focus:outline-none"
+                  />
+                  <button
+                    type="button"
+                    onClick={applyCoupon}
+                    disabled={couponLoading || !couponCode.trim()}
+                    className="rounded-lg bg-accent/10 px-3 py-2 text-sm font-medium text-accent hover:bg-accent/20 disabled:opacity-50 transition-colors"
+                  >
+                    {couponLoading ? "..." : "Apply"}
+                  </button>
+                </div>
+              )}
+              {couponError && (
+                <p className="mt-1 text-xs text-error">{couponError}</p>
+              )}
+            </div>
+
             {/* Totals */}
             <div className="border-t border-border pt-4 space-y-2">
               <div className="flex justify-between text-sm">
@@ -563,6 +654,12 @@ export default function CheckoutPage() {
                   )}
                 </span>
               </div>
+              {discountAmount > 0 && (
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted">Discount</span>
+                  <span className="text-success font-medium">-{formatPrice(discountAmount)}</span>
+                </div>
+              )}
               {shippingCost > 0 && (
                 <p className="text-xs text-accent">
                   Free shipping on orders above ₹499

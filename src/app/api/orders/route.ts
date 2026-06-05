@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { orders, orderItems, customerUploads, products } from "@/lib/db/schema";
+import { orders, orderItems, customerUploads, products, coupons } from "@/lib/db/schema";
 import { checkoutSchema, generateOrderNumber } from "@/lib/utils/validators";
 import { createRazorpayOrder, isRazorpayConfigured } from "@/lib/payments/razorpay";
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 
 export async function POST(request: NextRequest) {
   try {
@@ -18,6 +18,8 @@ export async function POST(request: NextRequest) {
     }
 
     const data = parsed.data;
+    const couponCode: string | undefined = body.couponCode;
+    const clientDiscountAmount: number | undefined = body.discountAmount;
 
     // Verify all products exist and prices match
     const productIds = data.items.map((item) => item.productId);
@@ -50,7 +52,36 @@ export async function POST(request: NextRequest) {
       0
     );
     const shippingCost = subtotal >= 499 ? 0 : 49; // Free shipping over ₹499
-    const total = subtotal + shippingCost;
+
+    // Validate coupon server-side if provided
+    let discountAmount = 0;
+    if (couponCode && clientDiscountAmount) {
+      const [coupon] = await db
+        .select()
+        .from(coupons)
+        .where(eq(coupons.code, couponCode.toUpperCase()))
+        .limit(1);
+
+      if (coupon && coupon.isActive) {
+        // Recalculate discount server-side for security
+        if (coupon.discountType === "percentage") {
+          discountAmount = (subtotal * Number(coupon.discountValue)) / 100;
+          const maxCap = coupon.maxDiscountAmount ? Number(coupon.maxDiscountAmount) : Infinity;
+          discountAmount = Math.min(discountAmount, maxCap);
+        } else {
+          discountAmount = Number(coupon.discountValue);
+        }
+        discountAmount = Math.min(Math.round(discountAmount), subtotal);
+
+        // Increment coupon usage
+        await db
+          .update(coupons)
+          .set({ usageCount: sql`${coupons.usageCount} + 1` })
+          .where(eq(coupons.id, coupon.id));
+      }
+    }
+
+    const total = subtotal + shippingCost - discountAmount;
 
     const orderNumber = generateOrderNumber();
     const testMode = !isRazorpayConfigured();
@@ -72,6 +103,7 @@ export async function POST(request: NextRequest) {
         shippingAddress: data.shippingAddress,
         subtotal: subtotal.toFixed(2),
         shippingCost: shippingCost.toFixed(2),
+        discountAmount: discountAmount.toFixed(2),
         total: total.toFixed(2),
         paymentId: razorpayOrder.id,
         notes: data.notes || null,

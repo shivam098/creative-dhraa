@@ -100,6 +100,18 @@ export const productUpdateSchema = z.object({
 
 export type ProductUpdateData = z.infer<typeof productUpdateSchema>;
 
+export const productCreateSchema = z.object({
+  name: z.string().min(1, "Product name is required"),
+  description: z.string().optional(),
+  price: z.number().positive("Price must be positive"),
+  comparePrice: z.number().positive().optional(),
+  categoryId: z.string().uuid("Select a category"),
+  status: z.enum(["draft", "published"]).default("published"),
+  imageUrl: z.string().url("Enter a valid image URL").optional(),
+});
+
+export type ProductCreateData = z.infer<typeof productCreateSchema>;
+
 export const bulkPriceUpdateSchema = z.object({
   updates: z.array(
     z.object({
