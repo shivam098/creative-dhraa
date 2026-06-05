@@ -10,6 +10,7 @@ import CartDrawer from "@/components/store/cart-drawer";
 import Magnetic from "@/components/animations/magnetic";
 import Preloader from "@/components/animations/preloader";
 import SmoothScroll from "@/components/animations/smooth-scroll";
+import TrackPageView from "@/components/store/track-page-view";
 
 // ─── Coupon Banner ────────────────────────────────────────────────────────────
 
@@ -253,6 +254,7 @@ export default function StoreLayout({
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
         >
+          <TrackPageView />
           {children}
         </motion.div>
       </main>

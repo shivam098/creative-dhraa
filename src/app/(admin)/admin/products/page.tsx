@@ -17,6 +17,7 @@ interface AdminProduct {
   sortOrder: number;
   categoryId: string | null;
   customFields: Record<string, string> | null;
+  personalizationFields: Array<{ label: string; placeholder: string; type: "text" | "textarea"; required: boolean }> | null;
   minImages: number;
   maxImages: number;
   createdAt: string;
@@ -52,6 +53,7 @@ export default function AdminProductsPage() {
     minImages: "0",
     maxImages: "5",
     customFields: [] as Array<{ key: string; value: string }>,
+    personalizationFields: [] as Array<{ label: string; placeholder: string; type: "text" | "textarea"; required: boolean }>,
   });
 
   // ─── Edit Form State ────────────────────────────────────────────────
@@ -67,6 +69,7 @@ export default function AdminProductsPage() {
     minImages: "0",
     maxImages: "5",
     customFields: [] as Array<{ key: string; value: string }>,
+    personalizationFields: [] as Array<{ label: string; placeholder: string; type: "text" | "textarea"; required: boolean }>,
   });
 
   // ─── Queries ────────────────────────────────────────────────────────
@@ -110,7 +113,7 @@ export default function AdminProductsPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["admin", "products"] });
       setShowCreateForm(false);
-      setCreateForm({ name: "", description: "", price: "", comparePrice: "", categoryId: "", status: "published", imageUrl: "", minImages: "0", maxImages: "5", customFields: [] });
+      setCreateForm({ name: "", description: "", price: "", comparePrice: "", categoryId: "", status: "published", imageUrl: "", minImages: "0", maxImages: "5", customFields: [], personalizationFields: [] });
     },
   });
 
@@ -197,6 +200,7 @@ export default function AdminProductsPage() {
       minImages: String(product.minImages || 0),
       maxImages: String(product.maxImages || 5),
       customFields: cf,
+      personalizationFields: product.personalizationFields || [],
     });
   };
 
@@ -223,6 +227,9 @@ export default function AdminProductsPage() {
         minImages: Number(editForm.minImages) || 0,
         maxImages: Number(editForm.maxImages) || 5,
         customFields: Object.keys(cfObj).length > 0 ? cfObj : null,
+        personalizationFields: editForm.personalizationFields.length > 0
+          ? editForm.personalizationFields.filter((f) => f.label.trim())
+          : null,
       },
     });
   };
@@ -245,6 +252,9 @@ export default function AdminProductsPage() {
       minImages: Number(createForm.minImages) || 0,
       maxImages: Number(createForm.maxImages) || 5,
       customFields: Object.keys(cfObj).length > 0 ? cfObj : undefined,
+      personalizationFields: createForm.personalizationFields.length > 0
+        ? createForm.personalizationFields.filter((f) => f.label.trim())
+        : undefined,
     });
   };
 
@@ -965,6 +975,99 @@ export default function AdminProductsPage() {
                             <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
                           </svg>
                         </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Personalization Fields (Customer Input Fields) */}
+              <div className="border-t border-border pt-4">
+                <div className="flex items-center justify-between mb-3">
+                  <label className="text-sm font-medium text-foreground">Personalization Fields</label>
+                  <button
+                    type="button"
+                    onClick={() => setEditForm({
+                      ...editForm,
+                      personalizationFields: [...editForm.personalizationFields, { label: "", placeholder: "", type: "text", required: false }],
+                    })}
+                    className="text-xs text-accent hover:underline font-medium"
+                  >
+                    + Add Field
+                  </button>
+                </div>
+                <p className="text-xs text-muted mb-3">
+                  These are the inputs customers fill in when ordering (e.g. &quot;Name to print&quot;, &quot;Date&quot;, &quot;Custom message&quot;).
+                </p>
+                {editForm.personalizationFields.length === 0 ? (
+                  <p className="text-xs text-muted italic">No personalization fields. Customers won&apos;t see any text inputs on this product.</p>
+                ) : (
+                  <div className="space-y-3">
+                    {editForm.personalizationFields.map((field, i) => (
+                      <div key={i} className="rounded-lg border border-border bg-background/50 p-3 space-y-2">
+                        <div className="flex gap-2 items-center">
+                          <input
+                            type="text"
+                            placeholder="Label (e.g. Name)"
+                            value={field.label}
+                            onChange={(e) => {
+                              const pf = [...editForm.personalizationFields];
+                              pf[i] = { ...pf[i], label: e.target.value };
+                              setEditForm({ ...editForm, personalizationFields: pf });
+                            }}
+                            className="flex-1 rounded-lg border border-border bg-background px-3 py-1.5 text-sm text-foreground focus:border-accent focus:outline-none"
+                          />
+                          <input
+                            type="text"
+                            placeholder="Placeholder text"
+                            value={field.placeholder}
+                            onChange={(e) => {
+                              const pf = [...editForm.personalizationFields];
+                              pf[i] = { ...pf[i], placeholder: e.target.value };
+                              setEditForm({ ...editForm, personalizationFields: pf });
+                            }}
+                            className="flex-1 rounded-lg border border-border bg-background px-3 py-1.5 text-sm text-foreground focus:border-accent focus:outline-none"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const pf = editForm.personalizationFields.filter((_, idx) => idx !== i);
+                              setEditForm({ ...editForm, personalizationFields: pf });
+                            }}
+                            className="rounded-lg p-1.5 text-error hover:bg-error/10 transition-colors"
+                          >
+                            <svg className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                              <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+                            </svg>
+                          </button>
+                        </div>
+                        <div className="flex gap-3 items-center">
+                          <select
+                            value={field.type}
+                            onChange={(e) => {
+                              const pf = [...editForm.personalizationFields];
+                              pf[i] = { ...pf[i], type: e.target.value as "text" | "textarea" };
+                              setEditForm({ ...editForm, personalizationFields: pf });
+                            }}
+                            className="rounded-lg border border-border bg-background px-2 py-1 text-xs text-foreground focus:border-accent focus:outline-none"
+                          >
+                            <option value="text">Short text</option>
+                            <option value="textarea">Long text</option>
+                          </select>
+                          <label className="flex items-center gap-1.5 text-xs text-muted cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={field.required}
+                              onChange={(e) => {
+                                const pf = [...editForm.personalizationFields];
+                                pf[i] = { ...pf[i], required: e.target.checked };
+                                setEditForm({ ...editForm, personalizationFields: pf });
+                              }}
+                              className="rounded border-border"
+                            />
+                            Required
+                          </label>
+                        </div>
                       </div>
                     ))}
                   </div>

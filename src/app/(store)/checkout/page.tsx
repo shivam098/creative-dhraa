@@ -1,10 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import Image from "next/image";
 import { useCartStore } from "@/stores/cart-store";
+import { useTrackEvent } from "@/hooks/use-track-event";
 import { formatPrice } from "@/lib/utils/validators";
 
 declare global {
@@ -118,6 +119,7 @@ export default function CheckoutPage() {
   const items = useCartStore((s) => s.items);
   const subtotal = useCartStore((s) => s.subtotal());
   const clearCart = useCartStore((s) => s.clearCart);
+  const { track } = useTrackEvent();
 
   const [isProcessing, setIsProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -156,6 +158,15 @@ export default function CheckoutPage() {
   const shippingCost = subtotal >= 499 ? 0 : 49;
   const discountAmount = appliedCoupon?.discountAmount || 0;
   const total = subtotal + shippingCost - discountAmount;
+
+  // Track checkout start
+  useEffect(() => {
+    if (items.length > 0) {
+      track("checkout_start", {
+        metadata: { itemCount: items.length, subtotal },
+      });
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const updateField = (field: string, value: string) => {
     setForm((prev) => ({ ...prev, [field]: value }));
@@ -228,6 +239,9 @@ export default function CheckoutPage() {
       });
 
       if (verifyRes.ok) {
+        track("checkout_complete", {
+          metadata: { orderNumber, itemCount: items.length, total },
+        });
         clearCart();
         router.push(`/order-success?orderNumber=${orderNumber}`);
       } else {

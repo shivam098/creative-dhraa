@@ -39,6 +39,7 @@ export async function PATCH(
     if (data.badge !== undefined) updateData.badge = data.badge;
     if (data.sortOrder !== undefined) updateData.sortOrder = data.sortOrder;
     if (data.customFields !== undefined) updateData.customFields = data.customFields;
+    if (data.personalizationFields !== undefined) updateData.personalizationFields = data.personalizationFields;
     if (data.minImages !== undefined) updateData.minImages = data.minImages;
     if (data.maxImages !== undefined) updateData.maxImages = data.maxImages;
 

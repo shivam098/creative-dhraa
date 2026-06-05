@@ -5,13 +5,15 @@ import { useState, useCallback } from "react";
 interface UseUploadOptions {
   maxFileSize?: number; // bytes, default 10MB
   allowedTypes?: string[];
-  sessionId: string;
+  folder?: string; // Cloudinary folder
 }
 
 interface UploadResult {
-  uploadId: string;
-  r2Url: string;
-  r2Key: string;
+  publicId: string;
+  url: string;
+  secureUrl: string;
+  width: number;
+  height: number;
 }
 
 interface UseUploadReturn {
@@ -22,11 +24,11 @@ interface UseUploadReturn {
   reset: () => void;
 }
 
-export function useUpload(options: UseUploadOptions): UseUploadReturn {
+export function useUpload(options: UseUploadOptions = {}): UseUploadReturn {
   const {
     maxFileSize = 10 * 1024 * 1024,
     allowedTypes = ["image/jpeg", "image/png", "image/webp"],
-    sessionId,
+    folder = "customer-uploads",
   } = options;
 
   const [isUploading, setIsUploading] = useState(false);
@@ -58,47 +60,46 @@ export function useUpload(options: UseUploadOptions): UseUploadReturn {
         throw new Error(err);
       }
 
+      const cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
+      const uploadPreset = process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET;
+
+      if (!cloudName || !uploadPreset) {
+        const err = "Image upload is not configured. Please contact support.";
+        setError(err);
+        throw new Error(err);
+      }
+
       setIsUploading(true);
       setProgress(10);
 
       try {
-        // Step 1: Get pre-signed URL from our API
-        const presignResponse = await fetch("/api/upload/presign", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            filename: file.name,
-            contentType: file.type,
-            fileSizeBytes: file.size,
-            sessionId,
-          }),
-        });
+        const formData = new FormData();
+        formData.append("file", file);
+        formData.append("upload_preset", uploadPreset);
+        formData.append("folder", folder);
 
-        if (!presignResponse.ok) {
-          const data = await presignResponse.json();
-          throw new Error(data.error || "Failed to get upload URL");
+        // Upload directly to Cloudinary
+        const response = await fetch(
+          `https://api.cloudinary.com/v1_1/${cloudName}/image/upload`,
+          { method: "POST", body: formData }
+        );
+
+        setProgress(80);
+
+        if (!response.ok) {
+          const data = await response.json();
+          throw new Error(data.error?.message || "Upload failed");
         }
 
-        const { uploadUrl, uploadId, publicUrl } = await presignResponse.json();
-        setProgress(30);
-
-        // Step 2: Upload directly to R2
-        const uploadResponse = await fetch(uploadUrl, {
-          method: "PUT",
-          headers: { "Content-Type": file.type },
-          body: file,
-        });
-
-        if (!uploadResponse.ok) {
-          throw new Error("Failed to upload file to storage");
-        }
-
+        const data = await response.json();
         setProgress(100);
 
         return {
-          uploadId,
-          r2Url: publicUrl,
-          r2Key: publicUrl.split("/").slice(-2).join("/"),
+          publicId: data.public_id,
+          url: data.url,
+          secureUrl: data.secure_url,
+          width: data.width,
+          height: data.height,
         };
       } catch (err) {
         const message = err instanceof Error ? err.message : "Upload failed";
@@ -108,7 +109,7 @@ export function useUpload(options: UseUploadOptions): UseUploadReturn {
         setIsUploading(false);
       }
     },
-    [allowedTypes, maxFileSize, sessionId]
+    [allowedTypes, maxFileSize, folder]
   );
 
   return { upload, isUploading, progress, error, reset };

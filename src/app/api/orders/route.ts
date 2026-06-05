@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { orders, orderItems, customerUploads, products, coupons } from "@/lib/db/schema";
+import { orders, orderItems, customerUploads, products, coupons, customerProfiles } from "@/lib/db/schema";
 import { checkoutSchema, generateOrderNumber } from "@/lib/utils/validators";
 import { createRazorpayOrder, isRazorpayConfigured } from "@/lib/payments/razorpay";
-import { eq, sql } from "drizzle-orm";
+import { eq, sql, or } from "drizzle-orm";
 
 export async function POST(request: NextRequest) {
   try {
@@ -133,6 +133,48 @@ export async function POST(request: NextRequest) {
             .where(eq(customerUploads.id, img.uploadId));
         }
       }
+    }
+
+    // Upsert customer profile (soft profile from checkout data)
+    try {
+      const conditions = [];
+      if (data.customerPhone) conditions.push(eq(customerProfiles.phone, data.customerPhone));
+      if (data.customerEmail) conditions.push(eq(customerProfiles.email, data.customerEmail));
+
+      if (conditions.length > 0) {
+        const [existing] = await db
+          .select()
+          .from(customerProfiles)
+          .where(conditions.length === 1 ? conditions[0] : or(...conditions))
+          .limit(1);
+
+        if (existing) {
+          // Update existing profile
+          await db
+            .update(customerProfiles)
+            .set({
+              name: data.customerName,
+              totalOrders: sql`${customerProfiles.totalOrders} + 1`,
+              totalSpent: sql`${customerProfiles.totalSpent} + ${total}`,
+              lastOrderAt: new Date(),
+              updatedAt: new Date(),
+            })
+            .where(eq(customerProfiles.id, existing.id));
+        } else {
+          // Create new profile
+          await db.insert(customerProfiles).values({
+            name: data.customerName,
+            email: data.customerEmail || null,
+            phone: data.customerPhone,
+            totalOrders: 1,
+            totalSpent: total.toString(),
+            lastOrderAt: new Date(),
+          });
+        }
+      }
+    } catch (profileError) {
+      // Non-critical — don't fail the order if profile creation fails
+      console.error("Customer profile upsert error:", profileError);
     }
 
     return NextResponse.json({

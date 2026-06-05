@@ -24,7 +24,9 @@ export default function ImageUploader({
 }: ImageUploaderProps) {
   const [uploadedImages, setUploadedImages] = useState<UploadedImage[]>([]);
   const [dragActive, setDragActive] = useState(false);
-  const { upload, isUploading, progress, error } = useUpload({ sessionId });
+  const { upload, isUploading, progress, error } = useUpload({
+    folder: `customer-uploads/${sessionId}`,
+  });
 
   const handleFiles = useCallback(
     async (files: FileList | File[]) => {
@@ -42,8 +44,8 @@ export default function ImageUploader({
           const result = await upload(file);
           if (result) {
             results.push({
-              uploadId: result.uploadId,
-              publicUrl: result.r2Url,
+              uploadId: result.publicId,
+              publicUrl: result.secureUrl,
               filename: file.name,
             });
           }
@@ -56,7 +58,7 @@ export default function ImageUploader({
       setUploadedImages(newImages);
       onUploadComplete(newImages);
     },
-    [uploadedImages, maxFiles, upload, sessionId, onUploadComplete]
+    [uploadedImages, maxFiles, upload, onUploadComplete]
   );
 
   const handleDrop = useCallback(

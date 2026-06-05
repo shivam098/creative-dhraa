@@ -39,6 +39,7 @@ export async function GET(request: NextRequest) {
           sortOrder: products.sortOrder,
           categoryId: products.categoryId,
           customFields: products.customFields,
+          personalizationFields: products.personalizationFields,
           minImages: products.minImages,
           maxImages: products.maxImages,
           createdAt: products.createdAt,
@@ -152,6 +153,7 @@ export async function POST(request: NextRequest) {
         categoryId: data.categoryId,
         status: data.status,
         customFields: data.customFields || null,
+        personalizationFields: data.personalizationFields || null,
         minImages: data.minImages ?? 0,
         maxImages: data.maxImages ?? 5,
       })

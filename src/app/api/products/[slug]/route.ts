@@ -156,6 +156,7 @@ export async function GET(
         salePrice,
         discountLabel,
         customFields: p.customFields || null,
+        personalizationFields: p.personalizationFields || null,
         minImages: p.minImages ?? 0,
         maxImages: p.maxImages ?? 5,
         category: category[0] || null,

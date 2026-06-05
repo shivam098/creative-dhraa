@@ -89,6 +89,13 @@ export const adminLoginSchema = z.object({
 
 export type AdminLoginData = z.infer<typeof adminLoginSchema>;
 
+const personalizationFieldSchema = z.object({
+  label: z.string().min(1),
+  placeholder: z.string(),
+  type: z.enum(["text", "textarea"]),
+  required: z.boolean(),
+});
+
 export const productUpdateSchema = z.object({
   name: z.string().min(1).optional(),
   description: z.string().optional(),
@@ -101,6 +108,7 @@ export const productUpdateSchema = z.object({
   customFields: z.record(z.string(), z.string()).nullable().optional(),
   minImages: z.number().int().min(0).max(50).optional(),
   maxImages: z.number().int().min(1).max(50).optional(),
+  personalizationFields: z.array(personalizationFieldSchema).nullable().optional(),
 });
 
 export type ProductUpdateData = z.infer<typeof productUpdateSchema>;
@@ -114,6 +122,7 @@ export const productCreateSchema = z.object({
   status: z.enum(["draft", "published"]).default("published"),
   imageUrl: z.string().url("Enter a valid image URL").optional(),
   customFields: z.record(z.string(), z.string()).nullable().optional(),
+  personalizationFields: z.array(personalizationFieldSchema).nullable().optional(),
   minImages: z.number().int().min(0).max(50).optional(),
   maxImages: z.number().int().min(1).max(50).optional(),
 });

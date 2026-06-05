@@ -523,8 +523,140 @@ export default function AdminDashboardPage() {
               </div>
             </div>
           </div>
+
+          {/* Conversion Funnel */}
+          <FunnelSection />
         </>
       ) : null}
+    </div>
+  );
+}
+
+// ─── Funnel Visualization ─────────────────────────────────────────────────────
+
+interface FunnelStage {
+  stage: string;
+  label: string;
+  uniqueSessions: number;
+  totalEvents: number;
+}
+
+interface FunnelData {
+  funnel: FunnelStage[];
+  summary: {
+    totalVisitors: number;
+    conversionRate: string;
+    cartAbandonmentRate: string;
+    searchCount: number;
+    remindMeCount: number;
+  };
+  period: { days: number };
+}
+
+function FunnelSection() {
+  const [days, setDays] = useState(30);
+
+  const { data, isLoading } = useQuery<FunnelData>({
+    queryKey: ["admin", "funnel", days],
+    queryFn: async () => {
+      const res = await fetch(`/api/admin/funnel?days=${days}`);
+      if (!res.ok) throw new Error("Failed to fetch funnel");
+      return res.json();
+    },
+  });
+
+  if (isLoading) {
+    return (
+      <div className="rounded-xl border border-border bg-surface p-6 animate-pulse">
+        <div className="h-6 w-48 bg-surface-hover rounded mb-4" />
+        <div className="h-48 bg-surface-hover rounded" />
+      </div>
+    );
+  }
+
+  if (!data) return null;
+
+  const { funnel, summary } = data;
+  const maxSessions = Math.max(...funnel.map((s) => s.uniqueSessions), 1);
+
+  return (
+    <div className="rounded-xl border border-border bg-surface overflow-hidden">
+      <div className="px-6 py-4 border-b border-border flex items-center justify-between">
+        <div>
+          <h2 className="font-semibold text-foreground">Conversion Funnel</h2>
+          <p className="text-xs text-muted mt-0.5">Visitor journey from page view to purchase</p>
+        </div>
+        <select
+          value={days}
+          onChange={(e) => setDays(Number(e.target.value))}
+          className="rounded-lg border border-border bg-background px-3 py-1.5 text-xs"
+        >
+          <option value={7}>Last 7 days</option>
+          <option value={14}>Last 14 days</option>
+          <option value={30}>Last 30 days</option>
+          <option value={90}>Last 90 days</option>
+        </select>
+      </div>
+
+      <div className="p-6 space-y-6">
+        {/* KPI Cards */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          <div className="rounded-lg bg-background p-3 text-center">
+            <p className="text-xl font-bold text-foreground">{summary.totalVisitors}</p>
+            <p className="text-[10px] text-muted uppercase tracking-wide">Visitors</p>
+          </div>
+          <div className="rounded-lg bg-background p-3 text-center">
+            <p className="text-xl font-bold text-accent">{summary.conversionRate}%</p>
+            <p className="text-[10px] text-muted uppercase tracking-wide">Conversion</p>
+          </div>
+          <div className="rounded-lg bg-background p-3 text-center">
+            <p className="text-xl font-bold text-foreground">{summary.cartAbandonmentRate}%</p>
+            <p className="text-[10px] text-muted uppercase tracking-wide">Cart Abandon</p>
+          </div>
+          <div className="rounded-lg bg-background p-3 text-center">
+            <p className="text-xl font-bold text-foreground">{summary.remindMeCount}</p>
+            <p className="text-[10px] text-muted uppercase tracking-wide">Remind Me</p>
+          </div>
+        </div>
+
+        {/* Funnel Bars */}
+        <div className="space-y-3">
+          {funnel.map((stage, idx) => {
+            const widthPercent = (stage.uniqueSessions / maxSessions) * 100;
+            const dropoff =
+              idx > 0 && funnel[idx - 1].uniqueSessions > 0
+                ? (
+                    ((funnel[idx - 1].uniqueSessions - stage.uniqueSessions) /
+                      funnel[idx - 1].uniqueSessions) *
+                    100
+                  ).toFixed(0)
+                : null;
+
+            return (
+              <div key={stage.stage} className="space-y-1">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="font-medium text-foreground">{stage.label}</span>
+                  <div className="flex items-center gap-2">
+                    <span className="text-muted">{stage.uniqueSessions} unique</span>
+                    {dropoff && (
+                      <span className="text-error text-[10px]">-{dropoff}%</span>
+                    )}
+                  </div>
+                </div>
+                <div className="h-7 w-full rounded bg-background overflow-hidden">
+                  <motion.div
+                    initial={{ width: 0 }}
+                    animate={{ width: `${widthPercent}%` }}
+                    transition={{ duration: 0.6, delay: idx * 0.1 }}
+                    className="h-full rounded bg-accent/70"
+                    style={{ minWidth: stage.uniqueSessions > 0 ? "2%" : "0%" }}
+                  />
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
     </div>
   );
 }

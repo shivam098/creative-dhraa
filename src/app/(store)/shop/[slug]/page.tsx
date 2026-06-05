@@ -3,10 +3,11 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useParams } from "next/navigation";
 import Image from "next/image";
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useCartStore } from "@/stores/cart-store";
 import { useSession } from "@/hooks/use-session";
+import { useTrackEvent } from "@/hooks/use-track-event";
 import { formatPrice } from "@/lib/utils/validators";
 import ImageUploader from "@/components/store/image-uploader";
 import TemplatePicker from "@/components/store/template-picker";
@@ -44,6 +45,7 @@ interface Product {
   salePrice: number | null;
   discountLabel: string | null;
   customFields: Record<string, string> | null;
+  personalizationFields: Array<{ label: string; placeholder: string; type: "text" | "textarea"; required: boolean }> | null;
   minImages: number;
   maxImages: number;
   category: { id: string; name: string; slug: string } | null;
@@ -57,6 +59,7 @@ export default function ProductDetailPage() {
   const slug = params.slug as string;
   const { sessionId } = useSession();
   const addItem = useCartStore((s) => s.addItem);
+  const { track } = useTrackEvent();
 
   const [selectedImage, setSelectedImage] = useState(0);
   const [selectedVariant, setSelectedVariant] = useState<Variant | null>(null);
@@ -67,6 +70,7 @@ export default function ProductDetailPage() {
   >([]);
   const [quantity, setQuantity] = useState(1);
   const [addedToCart, setAddedToCart] = useState(false);
+  const [showReminder, setShowReminder] = useState(false);
 
   const { data, isLoading, error } = useQuery({
     queryKey: ["product", slug],
@@ -81,6 +85,15 @@ export default function ProductDetailPage() {
   });
 
   const product = data?.product;
+
+  // Track product view
+  useEffect(() => {
+    if (product) {
+      track("product_view", {
+        metadata: { productId: product.id, slug: product.slug, category: product.category?.slug },
+      });
+    }
+  }, [product?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleUploadComplete = useCallback(
     (images: Array<{ uploadId: string; publicUrl: string; filename: string }>) => {
@@ -111,6 +124,11 @@ export default function ProductDetailPage() {
           position: `position_${i}`,
         })),
       },
+    });
+
+    // Track add to cart event
+    track("add_to_cart", {
+      metadata: { productId: product.id, slug: product.slug, quantity, price: effectivePrice },
     });
 
     setAddedToCart(true);
@@ -319,40 +337,87 @@ export default function ProductDetailPage() {
           )}
 
           {/* Custom Text Fields */}
-          <div className="space-y-3">
-            <h4 className="text-sm font-medium text-foreground">
-              Personalization Text
-            </h4>
-            <div className="space-y-2">
-              <input
-                type="text"
-                placeholder="Name (e.g., 'Sarah & Mike')"
-                value={textFields.name || ""}
-                onChange={(e) =>
-                  setTextFields((prev) => ({ ...prev, name: e.target.value }))
-                }
-                className="w-full rounded-lg border border-border bg-surface px-4 py-2.5 text-sm text-foreground placeholder:text-muted focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
-              />
-              <input
-                type="text"
-                placeholder="Date (e.g., '15.06.2024')"
-                value={textFields.date || ""}
-                onChange={(e) =>
-                  setTextFields((prev) => ({ ...prev, date: e.target.value }))
-                }
-                className="w-full rounded-lg border border-border bg-surface px-4 py-2.5 text-sm text-foreground placeholder:text-muted focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
-              />
-              <textarea
-                placeholder="Custom message (optional)"
-                rows={2}
-                value={textFields.message || ""}
-                onChange={(e) =>
-                  setTextFields((prev) => ({ ...prev, message: e.target.value }))
-                }
-                className="w-full rounded-lg border border-border bg-surface px-4 py-2.5 text-sm text-foreground placeholder:text-muted focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent resize-none"
-              />
+          {product.personalizationFields && product.personalizationFields.length > 0 ? (
+            <div className="space-y-3">
+              <h4 className="text-sm font-medium text-foreground">
+                Personalization
+              </h4>
+              <div className="space-y-2">
+                {product.personalizationFields.map((field, idx) => (
+                  field.type === "textarea" ? (
+                    <div key={idx}>
+                      <label className="text-xs text-muted">
+                        {field.label}
+                        {field.required && <span className="text-red-400 ml-0.5">*</span>}
+                      </label>
+                      <textarea
+                        placeholder={field.placeholder}
+                        rows={2}
+                        required={field.required}
+                        value={textFields[field.label] || ""}
+                        onChange={(e) =>
+                          setTextFields((prev) => ({ ...prev, [field.label]: e.target.value }))
+                        }
+                        className="mt-1 w-full rounded-lg border border-border bg-surface px-4 py-2.5 text-sm text-foreground placeholder:text-muted focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent resize-none"
+                      />
+                    </div>
+                  ) : (
+                    <div key={idx}>
+                      <label className="text-xs text-muted">
+                        {field.label}
+                        {field.required && <span className="text-red-400 ml-0.5">*</span>}
+                      </label>
+                      <input
+                        type="text"
+                        placeholder={field.placeholder}
+                        required={field.required}
+                        value={textFields[field.label] || ""}
+                        onChange={(e) =>
+                          setTextFields((prev) => ({ ...prev, [field.label]: e.target.value }))
+                        }
+                        className="mt-1 w-full rounded-lg border border-border bg-surface px-4 py-2.5 text-sm text-foreground placeholder:text-muted focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+                      />
+                    </div>
+                  )
+                ))}
+              </div>
             </div>
-          </div>
+          ) : (
+            <div className="space-y-3">
+              <h4 className="text-sm font-medium text-foreground">
+                Personalization Text
+              </h4>
+              <div className="space-y-2">
+                <input
+                  type="text"
+                  placeholder="Name (e.g., 'Sarah & Mike')"
+                  value={textFields.name || ""}
+                  onChange={(e) =>
+                    setTextFields((prev) => ({ ...prev, name: e.target.value }))
+                  }
+                  className="w-full rounded-lg border border-border bg-surface px-4 py-2.5 text-sm text-foreground placeholder:text-muted focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+                />
+                <input
+                  type="text"
+                  placeholder="Date (e.g., '15.06.2024')"
+                  value={textFields.date || ""}
+                  onChange={(e) =>
+                    setTextFields((prev) => ({ ...prev, date: e.target.value }))
+                  }
+                  className="w-full rounded-lg border border-border bg-surface px-4 py-2.5 text-sm text-foreground placeholder:text-muted focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+                />
+                <textarea
+                  placeholder="Custom message (optional)"
+                  rows={2}
+                  value={textFields.message || ""}
+                  onChange={(e) =>
+                    setTextFields((prev) => ({ ...prev, message: e.target.value }))
+                  }
+                  className="w-full rounded-lg border border-border bg-surface px-4 py-2.5 text-sm text-foreground placeholder:text-muted focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent resize-none"
+                />
+              </div>
+            </div>
+          )}
 
           {/* Image Upload */}
           {product.maxImages > 0 && (
@@ -432,12 +497,178 @@ export default function ProductDetailPage() {
               </AnimatePresence>
             </button>
           </div>
+
+          {/* Remind Me Button */}
+          <div className="pt-2">
+            <button
+              onClick={() => setShowReminder(!showReminder)}
+              className="flex items-center gap-2 text-sm text-muted hover:text-accent transition-colors"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="h-4 w-4">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M14.857 17.082a23.848 23.848 0 0 0 5.454-1.31A8.967 8.967 0 0 1 18 9.75V9A6 6 0 0 0 6 9v.75a8.967 8.967 0 0 1-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 0 1-5.714 0m5.714 0a3 3 0 1 1-5.714 0" />
+              </svg>
+              Remind me before a special date
+            </button>
+
+            <AnimatePresence>
+              {showReminder && (
+                <ReminderForm
+                  productId={product.id}
+                  productName={product.name}
+                  onClose={() => setShowReminder(false)}
+                  onTrack={() => track("remind_me", { metadata: { productId: product.id, slug: product.slug } })}
+                />
+              )}
+            </AnimatePresence>
+          </div>
         </motion.div>
       </div>
 
       {/* Reviews Section */}
       <ReviewSection slug={slug} />
     </div>
+  );
+}
+
+// ─── Reminder Form Component ──────────────────────────────────────────────────
+
+function ReminderForm({
+  productId,
+  productName,
+  onClose,
+  onTrack,
+}: {
+  productId: string;
+  productName: string;
+  onClose: () => void;
+  onTrack: () => void;
+}) {
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [phone, setPhone] = useState("");
+  const [occasion, setOccasion] = useState("");
+  const [remindDate, setRemindDate] = useState("");
+  const [submitted, setSubmitted] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!email && !phone) return;
+
+    setSubmitting(true);
+
+    // Remind 7 days before the occasion
+    const occasionDate = new Date(remindDate);
+    const reminderDate = new Date(occasionDate);
+    reminderDate.setDate(reminderDate.getDate() - 7);
+
+    // If reminder date is in the past, just use tomorrow
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    const finalRemindAt = reminderDate > tomorrow ? reminderDate : tomorrow;
+
+    try {
+      await fetch("/api/reminders", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: name || "Customer",
+          email: email || undefined,
+          phone: phone || undefined,
+          productId,
+          occasionLabel: occasion || `Reminder for ${productName}`,
+          remindAt: finalRemindAt.toISOString(),
+        }),
+      });
+      setSubmitted(true);
+      onTrack();
+    } catch {
+      // Silently handle
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  if (submitted) {
+    return (
+      <motion.div
+        initial={{ height: 0, opacity: 0 }}
+        animate={{ height: "auto", opacity: 1 }}
+        exit={{ height: 0, opacity: 0 }}
+        className="mt-3 rounded-lg border border-accent/20 bg-accent/5 p-4 text-sm text-accent"
+      >
+        We will remind you 7 days before! You can plan the perfect gift.
+      </motion.div>
+    );
+  }
+
+  return (
+    <motion.form
+      initial={{ height: 0, opacity: 0 }}
+      animate={{ height: "auto", opacity: 1 }}
+      exit={{ height: 0, opacity: 0 }}
+      onSubmit={handleSubmit}
+      className="mt-3 overflow-hidden rounded-lg border border-border bg-surface/50 p-4 space-y-3"
+    >
+      <p className="text-xs text-muted">
+        Get reminded 7 days before a special occasion so you can order in time.
+      </p>
+      <input
+        type="text"
+        placeholder="Your name"
+        value={name}
+        onChange={(e) => setName(e.target.value)}
+        className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted focus:border-accent focus:outline-none"
+      />
+      <div className="grid grid-cols-2 gap-2">
+        <input
+          type="email"
+          placeholder="Email"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          className="rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted focus:border-accent focus:outline-none"
+        />
+        <input
+          type="tel"
+          placeholder="Phone (WhatsApp)"
+          value={phone}
+          onChange={(e) => setPhone(e.target.value)}
+          className="rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted focus:border-accent focus:outline-none"
+        />
+      </div>
+      <input
+        type="text"
+        placeholder="Occasion (e.g., Mom's Birthday)"
+        value={occasion}
+        onChange={(e) => setOccasion(e.target.value)}
+        required
+        className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted focus:border-accent focus:outline-none"
+      />
+      <input
+        type="date"
+        value={remindDate}
+        onChange={(e) => setRemindDate(e.target.value)}
+        required
+        min={new Date().toISOString().split("T")[0]}
+        className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted focus:border-accent focus:outline-none"
+      />
+      <div className="flex items-center gap-2">
+        <button
+          type="submit"
+          disabled={submitting || (!email && !phone)}
+          className="rounded-full bg-accent/10 border border-accent/30 px-4 py-2 text-xs font-medium text-accent hover:bg-accent hover:text-background disabled:opacity-50 transition-all"
+        >
+          {submitting ? "Saving..." : "Set Reminder"}
+        </button>
+        <button
+          type="button"
+          onClick={onClose}
+          className="text-xs text-muted hover:text-foreground transition-colors"
+        >
+          Cancel
+        </button>
+      </div>
+    </motion.form>
   );
 }
 
