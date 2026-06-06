@@ -77,17 +77,17 @@ function ShopContent() {
   const pagination = data?.pagination || { page: 1, totalPages: 1, total: 0 };
 
   return (
-    <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+    <div className="mx-auto max-w-7xl px-4 pt-6 sm:pt-10 pb-12 sm:px-6 lg:px-8">
       {/* Page Header */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        className="mb-8"
+        className="mb-10"
       >
-        <h1 className="font-[family-name:var(--font-playfair)] text-3xl font-bold text-foreground sm:text-4xl">
+        <h1 className="font-[family-name:var(--font-playfair)] text-4xl font-light tracking-tight text-foreground sm:text-5xl">
           Shop
         </h1>
-        <p className="mt-2 text-sm text-muted">
+        <p className="mt-3 text-base text-muted">
           Browse our collection of handcrafted personalized gifts
         </p>
       </motion.div>

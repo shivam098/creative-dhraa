@@ -21,12 +21,12 @@ export default function AdminLayout({
   const pathname = usePathname();
   const router = useRouter();
   const [isAuthed, setIsAuthed] = useState<boolean | null>(null);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const isLoginPage = pathname === "/admin/login";
 
-  // Check auth on mount (runs on every page but only redirects on non-login pages)
   useEffect(() => {
     if (isLoginPage) {
-      setIsAuthed(true); // Skip auth check on login page
+      setIsAuthed(true);
       return;
     }
 
@@ -45,12 +45,10 @@ export default function AdminLayout({
     checkAuth();
   }, [router, isLoginPage]);
 
-  // Login page — render children only (no sidebar)
   if (isLoginPage) {
     return <>{children}</>;
   }
 
-  // Loading state while checking auth
   if (isAuthed === null) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-background">
@@ -64,12 +62,32 @@ export default function AdminLayout({
 
   return (
     <div className="flex min-h-screen bg-background">
+      {/* Mobile sidebar overlay */}
+      {sidebarOpen && (
+        <div
+          className="fixed inset-0 z-30 bg-black/30 backdrop-blur-sm lg:hidden"
+          onClick={() => setSidebarOpen(false)}
+        />
+      )}
+
       {/* Sidebar */}
-      <aside className="fixed left-0 top-0 z-40 h-full w-60 border-r border-border bg-surface">
-        <div className="flex h-16 items-center px-6 border-b border-border">
+      <aside
+        className={`fixed left-0 top-0 z-40 h-full w-64 border-r border-border bg-surface transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] lg:translate-x-0 ${
+          sidebarOpen ? "translate-x-0" : "-translate-x-full"
+        }`}
+      >
+        <div className="flex h-14 sm:h-16 items-center justify-between px-5 border-b border-border">
           <Link href="/admin/dashboard" className="font-[family-name:var(--font-playfair)] text-lg font-bold text-accent">
             CD Admin
           </Link>
+          <button
+            onClick={() => setSidebarOpen(false)}
+            className="lg:hidden p-1 text-muted hover:text-foreground"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" />
+            </svg>
+          </button>
         </div>
 
         <nav className="mt-4 px-3 space-y-1">
@@ -79,13 +97,14 @@ export default function AdminLayout({
               <Link
                 key={item.href}
                 href={item.href}
-                className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition-colors ${
+                onClick={() => setSidebarOpen(false)}
+                className={`flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition-all duration-200 ${
                   isActive
-                    ? "bg-accent/10 text-accent font-medium"
+                    ? "bg-accent/10 text-accent font-medium shadow-sm"
                     : "text-muted hover:bg-surface-hover hover:text-foreground"
                 }`}
               >
-                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="h-5 w-5">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="h-5 w-5 flex-shrink-0">
                   <path strokeLinecap="round" strokeLinejoin="round" d={item.icon} />
                 </svg>
                 {item.label}
@@ -94,7 +113,6 @@ export default function AdminLayout({
           })}
         </nav>
 
-        {/* Footer */}
         <div className="absolute bottom-0 left-0 right-0 border-t border-border p-4">
           <Link
             href="/"
@@ -109,8 +127,22 @@ export default function AdminLayout({
       </aside>
 
       {/* Main Content */}
-      <main className="flex-1 ml-60">
-        <div className="p-8">{children}</div>
+      <main className="flex-1 lg:ml-64">
+        {/* Mobile top bar */}
+        <div className="sticky top-0 z-20 flex h-14 items-center gap-3 border-b border-border bg-surface/80 backdrop-blur-xl px-4 lg:hidden">
+          <button
+            onClick={() => setSidebarOpen(true)}
+            className="p-1.5 text-muted hover:text-foreground"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" />
+            </svg>
+          </button>
+          <span className="font-[family-name:var(--font-playfair)] text-sm font-bold text-accent">
+            CD Admin
+          </span>
+        </div>
+        <div className="p-4 sm:p-6 lg:p-8">{children}</div>
       </main>
     </div>
   );
