@@ -536,3 +536,61 @@ export const productOccasionsRelations = relations(productOccasions, ({ one }) =
     references: [occasions.id],
   }),
 }));
+
+// ─── Customer Accounts (Auth) ─────────────────────────────────────────────────
+// Full customer accounts with Google OAuth support
+
+export const authProviderEnum = pgEnum("auth_provider", [
+  "email",
+  "google",
+]);
+
+export const customerAccounts = pgTable("customer_accounts", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  email: text("email").notNull().unique(),
+  name: text("name").notNull(),
+  avatarUrl: text("avatar_url"),
+  phone: text("phone"),
+  passwordHash: text("password_hash"), // null for OAuth-only accounts
+  provider: authProviderEnum("provider").default("email").notNull(),
+  googleId: text("google_id").unique(), // Google OAuth sub
+  profileId: uuid("profile_id").references(() => customerProfiles.id), // link to existing profile
+  isEmailVerified: boolean("is_email_verified").default(false).notNull(),
+  lastLoginAt: timestamp("last_login_at"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// ─── Wishlist ─────────────────────────────────────────────────────────────────
+
+export const wishlists = pgTable("wishlists", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  customerId: uuid("customer_id")
+    .notNull()
+    .references(() => customerAccounts.id, { onDelete: "cascade" }),
+  productId: uuid("product_id")
+    .notNull()
+    .references(() => products.id, { onDelete: "cascade" }),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// ─── Relations for auth & wishlist ────────────────────────────────────────────
+
+export const customerAccountsRelations = relations(customerAccounts, ({ one, many }) => ({
+  profile: one(customerProfiles, {
+    fields: [customerAccounts.profileId],
+    references: [customerProfiles.id],
+  }),
+  wishlists: many(wishlists),
+}));
+
+export const wishlistsRelations = relations(wishlists, ({ one }) => ({
+  customer: one(customerAccounts, {
+    fields: [wishlists.customerId],
+    references: [customerAccounts.id],
+  }),
+  product: one(products, {
+    fields: [wishlists.productId],
+    references: [products.id],
+  }),
+}));

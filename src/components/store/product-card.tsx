@@ -5,6 +5,7 @@ import Link from "next/link";
 import { motion } from "framer-motion";
 import { useState } from "react";
 import { formatPrice } from "@/lib/utils/validators";
+import { WishlistButton } from "@/components/store/wishlist-button";
 
 // Beautiful gradient fallbacks for when images fail to load
 const FALLBACK_GRADIENTS = [
@@ -64,7 +65,7 @@ export default function ProductCard({
     >
       <Link
         href={`/shop/${slug}`}
-        className="group block overflow-hidden rounded-xl border border-border bg-surface transition-all hover:border-accent/30 hover:shadow-lg hover:shadow-accent/5"
+        className="group block overflow-hidden rounded-2xl border border-border bg-surface transition-all duration-500 hover:border-accent/30 hover:shadow-lg hover:shadow-accent/5"
       >
         {/* Image Container */}
         <div className="relative aspect-square overflow-hidden bg-surface-hover">
@@ -120,6 +121,11 @@ export default function ProductCard({
               -{discount}%
             </span>
           )}
+
+          {/* Wishlist Button */}
+          <div className="absolute top-3 right-3 z-10">
+            <WishlistButton productId={id} size="sm" />
+          </div>
 
           {/* Product Badge (Top Seller, New Arrival, etc.) */}
           {badge && !discount && (

@@ -9,13 +9,11 @@ export default function Preloader() {
   const [shouldRender, setShouldRender] = useState(true);
 
   useEffect(() => {
-    // Check if user has already seen the preloader this session
     if (sessionStorage.getItem("preloaderShown")) {
       setShouldRender(false);
       return;
     }
 
-    // Respect reduced-motion — skip preloader entirely
     const prefersReducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     if (prefersReducedMotion) {
       setShouldRender(false);
@@ -23,10 +21,9 @@ export default function Preloader() {
       return;
     }
 
-    // Fast progress — completes in ~800ms total
     let current = 0;
     const interval = setInterval(() => {
-      const increment = current < 40 ? 8 : current < 70 ? 10 : 15;
+      const increment = current < 40 ? 6 : current < 70 ? 8 : 12;
       current = Math.min(current + increment, 100);
       setProgress(current);
 
@@ -35,9 +32,9 @@ export default function Preloader() {
         setTimeout(() => {
           setIsComplete(true);
           sessionStorage.setItem("preloaderShown", "true");
-        }, 150);
+        }, 400);
       }
-    }, 30);
+    }, 50);
 
     return () => clearInterval(interval);
   }, []);
@@ -45,58 +42,59 @@ export default function Preloader() {
   if (!shouldRender) return null;
 
   return (
-    <AnimatePresence>
+    <AnimatePresence mode="wait">
       {!isComplete && (
         <motion.div
-          className="fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-background"
-          exit={{ opacity: 0 }}
-          transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
+          className="fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-[#0F1A0F]"
+          exit={{ y: "-100%" }}
+          transition={{ duration: 0.8, ease: [0.87, 0, 0.13, 1] }}
         >
-          {/* Brand Name */}
+          {/* Floating orbs */}
           <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6, delay: 0.1 }}
-            className="flex flex-col items-center"
+            className="absolute top-1/4 left-1/4 w-64 h-64 rounded-full bg-accent/10 blur-3xl"
+            animate={{ scale: [1, 1.2, 1], opacity: [0.3, 0.5, 0.3] }}
+            transition={{ duration: 3, repeat: Infinity }}
+          />
+          <motion.div
+            className="absolute bottom-1/4 right-1/4 w-48 h-48 rounded-full bg-[#C9A96E]/10 blur-3xl"
+            animate={{ scale: [1.2, 1, 1.2], opacity: [0.3, 0.5, 0.3] }}
+            transition={{ duration: 3, repeat: Infinity, delay: 1.5 }}
+          />
+
+          {/* Brand mark */}
+          <motion.div
+            initial={{ opacity: 0, scale: 0.8 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
+            className="mb-12 flex flex-col items-center"
           >
-            <h1 className="font-[family-name:var(--font-playfair)] text-3xl font-bold text-accent sm:text-4xl md:text-5xl">
+            <span className="font-[family-name:var(--font-playfair)] text-3xl sm:text-4xl tracking-tight text-white">
               Creative Dhraa
-            </h1>
-            <p className="mt-2 text-xs uppercase tracking-[0.3em] text-muted">
+            </span>
+            <p className="mt-3 text-xs uppercase tracking-[0.3em] text-white/40">
               Personalized Gifts
             </p>
           </motion.div>
 
-          {/* Progress indicator */}
-          <motion.div
+          {/* Progress bar */}
+          <div className="w-48 h-[1px] bg-white/20 overflow-hidden">
+            <motion.div
+              className="h-full bg-[#C9A96E]"
+              initial={{ width: "0%" }}
+              animate={{ width: `${Math.min(progress, 100)}%` }}
+              transition={{ duration: 0.3, ease: "linear" }}
+            />
+          </div>
+
+          {/* Counter */}
+          <motion.span
+            className="mt-4 text-sm text-white/40 font-mono tabular-nums"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            transition={{ delay: 0.4 }}
-            className="mt-12 flex flex-col items-center gap-4"
+            transition={{ delay: 0.3 }}
           >
-            {/* Percentage counter */}
-            <span className="font-mono text-sm tabular-nums text-muted">
-              {progress.toString().padStart(3, "0")}%
-            </span>
-
-            {/* Progress bar */}
-            <div className="h-px w-48 overflow-hidden bg-border">
-              <motion.div
-                className="h-full bg-accent"
-                initial={{ width: "0%" }}
-                animate={{ width: `${progress}%` }}
-                transition={{ duration: 0.1, ease: "linear" }}
-              />
-            </div>
-          </motion.div>
-
-          {/* Decorative corners */}
-          <div className="pointer-events-none absolute inset-8">
-            <div className="absolute left-0 top-0 h-8 w-8 border-l border-t border-accent/20" />
-            <div className="absolute right-0 top-0 h-8 w-8 border-r border-t border-accent/20" />
-            <div className="absolute bottom-0 left-0 h-8 w-8 border-b border-l border-accent/20" />
-            <div className="absolute bottom-0 right-0 h-8 w-8 border-b border-r border-accent/20" />
-          </div>
+            {Math.min(Math.round(progress), 100)}%
+          </motion.span>
         </motion.div>
       )}
     </AnimatePresence>

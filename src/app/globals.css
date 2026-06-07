@@ -2,13 +2,20 @@
 
 :root {
   --background: #FAFAF8;
-  --foreground: #1A2E1A;
+  --foreground: #0F1A0F;
   --surface: #FFFFFF;
-  --surface-hover: #F1F4F0;
+  --surface-hover: #F8FAF7;
   --accent: #6B8F71;
   --accent-hover: #5A7D60;
+  --accent-light: #8FB996;
+  --accent-dark: #4A6B50;
+  --gold: #C9A96E;
+  --gold-light: #E8D5A8;
+  --gold-dark: #8B7340;
   --muted: #6B7280;
+  --muted-light: #9CA3AF;
   --border: #E2E8DF;
+  --border-light: #F0F4EE;
   --success: #16A34A;
   --error: #DC2626;
   --warning: #D97706;
@@ -19,10 +26,18 @@
   --color-foreground: var(--foreground);
   --color-surface: var(--surface);
   --color-surface-hover: var(--surface-hover);
+  --color-surface-elevated: var(--surface-hover);
   --color-accent: var(--accent);
   --color-accent-hover: var(--accent-hover);
+  --color-accent-light: var(--accent-light);
+  --color-accent-dark: var(--accent-dark);
+  --color-gold: var(--gold);
+  --color-gold-light: var(--gold-light);
+  --color-gold-dark: var(--gold-dark);
   --color-muted: var(--muted);
+  --color-muted-light: var(--muted-light);
   --color-border: var(--border);
+  --color-border-light: var(--border-light);
   --color-success: var(--success);
   --color-error: var(--error);
   --color-warning: var(--warning);
@@ -32,15 +47,29 @@
 
 * {
   box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html {
+  scroll-behavior: auto;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
   font-family: var(--font-sans), system-ui, sans-serif;
+  overflow-x: hidden;
 }
 
-/* Lenis handles smooth scrolling — do NOT use CSS scroll-behavior */
+::selection {
+  background-color: var(--accent);
+  color: white;
+}
+
+/* Lenis smooth scrolling */
 html.lenis, html.lenis body {
   height: auto;
 }
@@ -55,47 +84,85 @@ html.lenis, html.lenis body {
 
 /* Custom scrollbar */
 ::-webkit-scrollbar {
-  width: 6px;
+  width: 4px;
 }
 
 ::-webkit-scrollbar-track {
-  background: var(--background);
+  background: transparent;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: var(--border);
-  border-radius: 3px;
+  background: var(--accent);
+  border-radius: 2px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: var(--muted);
+  background: var(--accent-hover);
 }
 
 /* Shimmer animation for skeleton loaders */
 @keyframes shimmer {
-  0% {
-    background-position: -200% 0;
-  }
-  100% {
-    background-position: 200% 0;
-  }
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
 }
 
 .skeleton {
-  background: linear-gradient(
-    90deg,
-    var(--surface) 25%,
-    var(--surface-hover) 50%,
-    var(--surface) 75%
-  );
+  background: linear-gradient(90deg, var(--surface) 25%, var(--surface-hover) 50%, var(--surface) 75%);
   background-size: 200% 100%;
   animation: shimmer 1.5s infinite;
   border-radius: 4px;
 }
 
+/* Aurora gradient background */
+.aurora-bg {
+  background: 
+    radial-gradient(ellipse at 20% 50%, rgba(107, 143, 113, 0.08) 0%, transparent 50%),
+    radial-gradient(ellipse at 80% 20%, rgba(201, 169, 110, 0.06) 0%, transparent 50%),
+    radial-gradient(ellipse at 50% 80%, rgba(143, 185, 150, 0.05) 0%, transparent 50%);
+}
+
+/* Glass effect */
+.glass {
+  background: rgba(255, 255, 255, 0.7);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+}
+
+/* Text gradient */
+.text-gradient {
+  background: linear-gradient(135deg, var(--accent-dark) 0%, var(--gold) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* Grid pattern overlay */
+.grid-pattern {
+  background-image: 
+    linear-gradient(rgba(107, 143, 113, 0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(107, 143, 113, 0.03) 1px, transparent 1px);
+  background-size: 60px 60px;
+}
+
 /* Accent glow effect */
 .glow-accent {
   box-shadow: 0 0 20px rgba(107, 143, 113, 0.2);
+}
+
+/* Float animation */
+@keyframes float {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-20px); }
+}
+
+.animate-float {
+  animation: float 6s ease-in-out infinite;
+}
+
+/* Text balance */
+.text-balance {
+  text-wrap: balance;
 }
 
 /* Backdrop blur for overlays */
